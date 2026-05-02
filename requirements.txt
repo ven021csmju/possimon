@@ -13,3 +13,4 @@ requests
 python-multipart
 authlib
 httpx
+itsdangerous
