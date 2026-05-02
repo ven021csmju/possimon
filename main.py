@@ -105,7 +105,10 @@ def login(username: str, password: str, db: Session = Depends(get_db)):
 
 @app.get("/login/google")
 async def login_google(request: Request):
-    redirect_uri = request.url_for("auth_google")  # อัตโนมัติ ไม่พลาด
+    redirect_uri = request.url_for("auth_google")
+    # Fix for Render: Ensure redirect_uri uses https
+    if "onrender.com" in str(redirect_uri):
+        redirect_uri = str(redirect_uri).replace("http://", "https://")
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 
