@@ -24,6 +24,19 @@ oauth.register(
     }
 )
 
+oauth.register(
+    name='line',
+    client_id=os.getenv("LINE_CHANNEL_ID"),
+    client_secret=os.getenv("LINE_CHANNEL_SECRET"),
+    access_token_url='https://api.line.me/oauth2/v2.1/token',
+    authorize_url='https://access.line.me/oauth2/v2.1/authorize',
+    api_base_url='https://api.line.me/',
+    client_kwargs={
+        'scope': 'profile', # Remove 'openid' to bypass ID Token verification issues
+        'token_endpoint_auth_method': 'client_secret_post',
+    }
+)
+
 
 def hash_password(password: str):
     return pwd_context.hash(password)

@@ -285,4 +285,57 @@ def get_wine():
 
     except Exception as e:
         return {"error": str(e)}
-    
+
+# Line login endpoints
+
+@app.get("/login/line")
+async def login_line(request: Request):
+    redirect_uri = request.url_for("auth_line")
+    # Fix for Render: Ensure redirect_uri uses https
+    if "onrender.com" in str(redirect_uri):
+        redirect_uri = str(redirect_uri).replace("http://", "https://")
+    return await oauth.line.authorize_redirect(request, redirect_uri)
+
+
+@app.get("/auth/line/callback")
+async def auth_line(request: Request, db: Session = Depends(get_db)):
+    try:
+        token = await oauth.line.authorize_access_token(request)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"LINE OAuth error: {str(e)}")
+
+    # Fetch user profile manually to avoid ID Token verification issues
+    resp = await oauth.line.get("v2/profile", token=token)
+    profile = resp.json()
+
+    user_id = profile.get("userId")
+    name = profile.get("displayName")
+    email = f"{user_id}@line-user"
+
+    user = db.query(models.User).filter(models.User.email == email).first()
+
+    if not user:
+        user = models.User(
+            first_name=name,
+            last_name="",
+            email=email,
+            username=email,
+            password=hash_password("line_oauth_no_password"),
+            role="user"
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    jwt_token = create_access_token({
+        "user_id": user.id,
+        "role": user.role
+    })
+
+    return {
+        "access_token": jwt_token,
+        "user": {
+            "id": user.id,
+            "name": name
+        }
+    }
