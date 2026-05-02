@@ -1,0 +1,13 @@
+# env
+.env
+
+# python
+__pycache__/
+*.pyc
+
+# git tools
+possimon.git/
+possimon.git.bfg-report/
+
+# data
+Data/*.csv
