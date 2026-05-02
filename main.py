@@ -6,7 +6,7 @@ load_dotenv()
 
 from fastapi import Depends, FastAPI, HTTPException, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from starlette.middleware.sessions import SessionMiddleware
 from sqlalchemy.orm import Session
 from typing import List
@@ -148,10 +148,7 @@ async def auth_google(request: Request, db: Session = Depends(get_db)):
         "role": user.role
     })
 
-    return {
-        "access_token": jwt_token,
-        "user": user_info
-    }
+    return RedirectResponse(url=f"http://localhost:8000/?token={jwt_token}")
 
 def get_current_user(authorization: str = Header(...)):
     try:
@@ -332,10 +329,4 @@ async def auth_line(request: Request, db: Session = Depends(get_db)):
         "role": user.role
     })
 
-    return {
-        "access_token": jwt_token,
-        "user": {
-            "id": user.id,
-            "name": name
-        }
-    }
+    return RedirectResponse(url=f"http://localhost:8000/?token={jwt_token}")
