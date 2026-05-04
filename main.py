@@ -4,6 +4,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000/auth/success")
+
 from fastapi import Depends, FastAPI, HTTPException, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
@@ -23,9 +25,11 @@ app = FastAPI()
 
 app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
 
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"], # เพิ่ม URL ของ frontend ของคุณที่นี่
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -148,7 +152,7 @@ async def auth_google(request: Request, db: Session = Depends(get_db)):
         "role": user.role
     })
 
-    return RedirectResponse(url=f"http://localhost:8000/?token={jwt_token}")
+    return RedirectResponse(url=f"{FRONTEND_URL}?token={jwt_token}")
 
 def get_current_user(authorization: str = Header(...)):
     try:
@@ -329,4 +333,51 @@ async def auth_line(request: Request, db: Session = Depends(get_db)):
         "role": user.role
     })
 
-    return RedirectResponse(url=f"http://localhost:8000/?token={jwt_token}")
+    return RedirectResponse(url=f"{FRONTEND_URL}?token={jwt_token}")
+
+@app.get("/login/facebook")
+async def login_facebook(request: Request):
+    redirect_uri = request.url_for("auth_facebook")
+    # Fix for Render: Ensure redirect_uri uses https
+    if "onrender.com" in str(redirect_uri):
+        redirect_uri = str(redirect_uri).replace("http://", "https://")
+    return await oauth.facebook.authorize_redirect(request, redirect_uri)
+
+
+@app.get("/auth/facebook/callback")
+async def auth_facebook(request: Request, db: Session = Depends(get_db)):
+    try:
+        token = await oauth.facebook.authorize_access_token(request)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Facebook OAuth error: {str(e)}")
+
+    resp = await oauth.facebook.get(
+        "me?fields=id,name,email",
+        token=token
+    )
+    profile = resp.json()
+
+    email = profile.get("email") or f"{profile.get('id')}@facebook-user"
+    name = profile.get("name")
+
+    user = db.query(models.User).filter(models.User.email == email).first()
+
+    if not user:
+        user = models.User(
+            first_name=name,
+            last_name="",
+            email=email,
+            username=email,
+            password=None,
+            role="user"
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    jwt_token = create_access_token({
+        "user_id": user.id,
+        "role": user.role
+    })
+
+    return RedirectResponse(url=f"{FRONTEND_URL}?token={jwt_token}")

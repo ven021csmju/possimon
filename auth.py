@@ -37,6 +37,18 @@ oauth.register(
     }
 )
 
+oauth.register(
+    name='facebook',
+    client_id=os.getenv('FACEBOOK_APP_ID'),
+    client_secret=os.getenv('FACEBOOK_APP_SECRET'),
+    access_token_url='https://graph.facebook.com/v19.0/oauth/access_token',
+    authorize_url='https://www.facebook.com/v19.0/dialog/oauth',
+    api_base_url='https://graph.facebook.com/v19.0/',
+    client_kwargs={
+        "scope": "email public_profile"
+    }
+)
+
 
 def hash_password(password: str):
     return pwd_context.hash(password)
