@@ -14,3 +14,5 @@ python-multipart
 authlib
 httpx
 itsdangerous
+qrcode[pil]
+Pillow
