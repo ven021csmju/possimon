@@ -7,6 +7,7 @@ load_dotenv()
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000/auth/success")
 
 from fastapi import Depends, FastAPI, HTTPException, Header, Request, WebSocket, WebSocketDisconnect
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 import io
@@ -24,6 +25,7 @@ from seed import seed_data
 from auth import verify_password, create_access_token, hash_password, SECRET_KEY, ALGORITHM, oauth
 
 app = FastAPI()
+security = HTTPBearer()
 
 # WebSocket Connection Manager
 class ConnectionManager:
@@ -33,13 +35,19 @@ class ConnectionManager:
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
         self.active_connections.append(websocket)
+        print(f"Client connected. Total connections: {len(self.active_connections)}")
 
     def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
+            print(f"Client disconnected. Total connections: {len(self.active_connections)}")
 
     async def broadcast(self, message: dict):
         for connection in self.active_connections:
-            await connection.send_json(message)
+            try:
+                await connection.send_json(message)
+            except Exception as e:
+                print(f"Error broadcasting to a connection: {e}")
 
 manager = ConnectionManager()
 
@@ -173,10 +181,9 @@ async def auth_google(request: Request, db: Session = Depends(get_db)):
     })
 
     return RedirectResponse(url=f"{FRONTEND_URL}?token={jwt_token}")
-
-def get_current_user(authorization: str = Header(...)):
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     try:
-        token = authorization.split(" ")[1]
+        token = credentials.credentials
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload
     except:
@@ -184,6 +191,8 @@ def get_current_user(authorization: str = Header(...)):
 
 @app.post("/register")
 def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
+    # ...
+
     # Check if user exists by email first (for social/existing updates)
     existing_user = db.query(models.User).filter(
         models.User.email == user.email
@@ -368,18 +377,21 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 
-def get_admin_user(authorization: str = Header(...)):
-    payload = get_current_user(authorization)
-    if payload.get("role") != "admin":
+def get_admin_user(current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") != "admin":
         raise HTTPException(status_code=403, detail="Admin access required")
-    return payload
+    return current_user
 
 @app.post("/confirm-payment/{order_id}")
-async def confirm_payment(order_id: int, db: Session = Depends(get_db), admin = Depends(get_admin_user)):
+async def confirm_payment(order_id: int, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
     db_order = db.query(models.Order).filter(models.Order.id == order_id).first()
     if not db_order:
         raise HTTPException(status_code=404, detail="Order not found")
     
+    # Allow if user is admin OR the owner of the order
+    if current_user.get("role") != "admin" and db_order.user_id != current_user.get("user_id"):
+        raise HTTPException(status_code=403, detail="You do not have permission to confirm this payment")
+
     db_order.status = "paid"
     db.commit()
 
