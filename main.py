@@ -107,6 +107,13 @@ def delete():
     <p>We will process your request within 7 days.</p>
     """
 
+@app.get("/terms", response_class=HTMLResponse)
+def terms():
+    return """
+    <h1>Terms of Service</h1>
+    <p>By using this app, you agree to our terms.</p>
+    """
+
 @app.get("/products", response_model=List[schemas.ProductOut])
 def get_products(db: Session = Depends(get_db)):
     return crud.get_products(db)
