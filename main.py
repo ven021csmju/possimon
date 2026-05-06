@@ -500,7 +500,7 @@ async def auth_facebook(request: Request, db: Session = Depends(get_db)):
 
     return RedirectResponse(url=f"{FRONTEND_URL}?token={jwt_token}")
 
-@app.get("/delete", response_class=HTMLResponse)
+@app.get("/delete-deletion", response_class=HTMLResponse)
 def delete_info():
     return """
     <html>
