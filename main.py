@@ -499,8 +499,15 @@ async def auth_facebook(request: Request, db: Session = Depends(get_db)):
 
     return RedirectResponse(url=f"{FRONTEND_URL}?token={jwt_token}")
 
-@app.get("/delete")
+@app.get("/delete", response_class=HTMLResponse)
 def delete_info():
-    return {
-        "message": "If you want to delete your data, please contact: venn0217@gmail.com"
-    }
+    return """
+    <html>
+        <head><title>Data Deletion</title></head>
+        <body>
+            <h1>Data Deletion Request</h1>
+            <p>If you want to delete your data, please contact:</p>
+            <p>Email: venn0217@gmail.com</p>
+        </body>
+    </html>
+    """
