@@ -87,9 +87,18 @@ async def global_exception_handler(request: Request, exc: Exception):
         content={"message": "Internal Server Error", "detail": str(exc)},
     )
 
-@app.get("/")
+@app.get("/", response_class=HTMLResponse)
+def home():
+    return """
+    <h1>Privacy Policy</h1>
+    <p>This app collects basic user data (name, email) for login purposes.</p>
+    <p>We do not share your data with third parties.</p>
+    <p>Contact: venn0217@gmail.com</p>
+    """
+
+@app.get("/", response_class=HTMLResponse)
 def read_root():
-    return {"status": "ok", "message": "PoSimon Backend is running"}
+    return home()
 
 @app.get("/products", response_model=List[schemas.ProductOut])
 def get_products(db: Session = Depends(get_db)):
@@ -501,12 +510,10 @@ async def auth_facebook(request: Request, db: Session = Depends(get_db)):
     return RedirectResponse(url=f"{FRONTEND_URL}?token={jwt_token}")
 
 @app.get("/data-deletion", response_class=HTMLResponse)
-def delete_info():
+def delete_data():
     return """
-    <html>
-        <body>
-            <h1>Data Deletion</h1>
-            <p>Contact: venn0217@gmail.com</p>
-        </body>
-    </html>
+    <h1>Data Deletion</h1>
+    <p>If you want to delete your data, please contact:</p>
+    <p>Email: venn0217@gmail.com</p>
+    <p>We will delete your data within 7 days.</p>
     """
