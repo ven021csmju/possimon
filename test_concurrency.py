@@ -5,22 +5,32 @@ import time
 
 BASE_URL = "http://127.0.0.1:8000"
 
-def create_test_data():
+def login(username, password):
+    resp = requests.post(
+        f"{BASE_URL}/login",
+        json={"username": username, "password": password},
+    )
+    resp.raise_for_status()
+    return resp.json()["access_token"]
+
+def auth_headers(token):
+    return {"Authorization": f"Bearer {token}"}
+
+def create_test_data(admin_token):
     # 1. Create a product with 5 stock
     product_data = {
         "name": "Concurrency Test Product",
         "price": 100.0,
         "stock": 5
     }
-    resp = requests.post(f"{BASE_URL}/products", json=product_data)
+    resp = requests.post(f"{BASE_URL}/products", json=product_data, headers=auth_headers(admin_token))
     print(f"Product creation status: {resp.status_code}")
     print(f"Product creation response: {resp.text}")
     product = resp.json()
     return product['id']
 
-def place_order(user_id, product_id, quantity, results):
+def place_order(user_token, product_id, quantity, results):
     order_data = {
-        "user_id": user_id,
         "address_id": 1, # Assume address 1 exists from seed
         "payment_method": "credit_card",
         "items": [
@@ -28,13 +38,14 @@ def place_order(user_id, product_id, quantity, results):
         ]
     }
     try:
-        resp = requests.post(f"{BASE_URL}/orders", json=order_data)
+        resp = requests.post(f"{BASE_URL}/orders", json=order_data, headers=auth_headers(user_token))
         results.append(resp.status_code)
     except Exception as e:
         results.append(str(e))
 
 def run_test():
-    product_id = create_test_data()
+    admin_token = login("admin", "admin123")
+    product_id = create_test_data(admin_token)
     
     threads = []
     results = []
@@ -42,7 +53,7 @@ def run_test():
     # Try to place 10 orders of 1 item each (total 10 items, but only 5 in stock)
     print("Launching 10 concurrent orders...")
     for i in range(10):
-        t = threading.Thread(target=place_order, args=(1, product_id, 1, results))
+        t = threading.Thread(target=place_order, args=(admin_token, product_id, 1, results))
         threads.append(t)
         t.start()
         

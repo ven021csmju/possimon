@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
-from models import Product, User, Address
+from models import Product, User, Address, OrderStatus, PaymentMethod, OrderType
 import models
-from auth import hash_password
+from core.security import hash_password
 
 def seed_data(db: Session):
     # Check if users already exist
@@ -11,7 +11,7 @@ def seed_data(db: Session):
 
     # 1. Users
     admin = User(first_name="Admin", last_name="User", email="admin@example.com", phone="1234567890", username="admin", password=hash_password("admin123"), role="admin")
-    john = User(first_name="John", last_name="Doe", email="john@example.com", phone="0987654321", username="john_doe", password=hash_password("password123"), role="user")
+    john = User(first_name="John", last_name="Doe", email="john@example.com", phone="0987654321", username="john_doe", password=hash_password("password123"), role="customer")
     db.add_all([admin, john])
     db.commit()
 
@@ -23,9 +23,36 @@ def seed_data(db: Session):
 
     # 3. Regular Products
     products = [
-        Product(name="Coke", price=20.0, stock=100, type="product"),
-        Product(name="Pepsi", price=20.0, stock=100, type="product"),
-        Product(name="Water", price=10.0, stock=200, type="product"),
+        Product(
+            name="Coke", 
+            sku="COKE-001", 
+            barcode="885000000001", 
+            cost_price=15.0, 
+            selling_price=20.0, 
+            price=20.0, 
+            stock=100, 
+            type="product"
+        ),
+        Product(
+            name="Pepsi", 
+            sku="PEPSI-001", 
+            barcode="885000000002", 
+            cost_price=15.0, 
+            selling_price=20.0, 
+            price=20.0, 
+            stock=100, 
+            type="product"
+        ),
+        Product(
+            name="Water", 
+            sku="WATER-001", 
+            barcode="885000000003", 
+            cost_price=5.0, 
+            selling_price=10.0, 
+            price=10.0, 
+            stock=200, 
+            type="product"
+        ),
     ]
     db.add_all(products)
     db.commit()
@@ -54,13 +81,17 @@ def seed_data(db: Session):
     # 5. Wines
     wine1 = models.Wine(
         name="Margaux 2015",
+        sku="WINE-FR-001",
+        barcode="300000000001",
+        cost_price=800.0,
+        selling_price=1200.0,
+        price=1200.0,
         winery_id=chateau_margaux.id,
         region_id=bordeaux.id,
         country_id=france.id,
         wine_type="Red",
         vintage=2015,
         alcohol=13.5,
-        price=1200.0,
         stock=10,
         type="wine",
         description="A legendary vintage from Château Margaux."
@@ -69,13 +100,17 @@ def seed_data(db: Session):
 
     wine2 = models.Wine(
         name="Tignanello 2018",
+        sku="WINE-IT-001",
+        barcode="800000000001",
+        cost_price=100.0,
+        selling_price=150.0,
+        price=150.0,
         winery_id=antinori.id,
         region_id=tuscany.id,
         country_id=italy.id,
         wine_type="Red",
         vintage=2018,
         alcohol=14.0,
-        price=150.0,
         stock=20,
         type="wine",
         description="Famous Super Tuscan wine."

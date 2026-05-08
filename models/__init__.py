@@ -1,8 +1,25 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Float, DateTime, Boolean
+from sqlalchemy import Column, Integer, String, ForeignKey, Float, DateTime, Boolean, Enum
 from sqlalchemy.orm import relationship
 from database import Base
 import datetime
+import enum
 
+class OrderStatus(enum.Enum):
+    PENDING = "pending"
+    PAID = "paid"
+    CANCELLED = "cancelled"
+    REFUNDED = "refunded"
+    COMPLETED = "completed"
+
+class PaymentMethod(enum.Enum):
+    CASH = "cash"
+    PROMPTPAY = "promptpay"
+    CREDIT_CARD = "credit_card"
+    TRANSFER = "transfer"
+
+class OrderType(enum.Enum):
+    POS = "pos"
+    ONLINE = "online"
 
 class User(Base):
     __tablename__ = "users"
@@ -12,9 +29,10 @@ class User(Base):
     email = Column(String, unique=True, index=True)
     phone = Column(String)
     username = Column(String, unique=True, index=True)
-    password = Column(String, nullable=True) # Allow null for Google Users
-    role = Column(String, default="user")  # 👈 admin / user
-    is_social = Column(Boolean, default=False) # Track if from Google/Social
+    password = Column(String, nullable=True)
+    role = Column(String, default="customer")
+    is_social = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
 class Address(Base):
     __tablename__ = "addresses"
@@ -30,10 +48,19 @@ class Address(Base):
 class Product(Base):
     __tablename__ = "products"
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String)
-    price = Column(Float)
-    stock = Column(Integer)
+    name = Column(String, index=True)
+    sku = Column(String, unique=True, index=True)
+    barcode = Column(String, unique=True, index=True)
+    cost_price = Column(Float, default=0.0)
+    selling_price = Column(Float, default=0.0)
+    price = Column(Float) # Legacy field, we can migrate to selling_price later
+    stock = Column(Integer, default=0)
+    low_stock_alert = Column(Integer, default=10)
+    image_url = Column(String, nullable=True)
+    status = Column(String, default="active") # active, inactive
     type = Column(String)  # discriminator: 'product' or 'wine'
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
     __mapper_args__ = {
         "polymorphic_identity": "product",
@@ -44,11 +71,12 @@ class Order(Base):
     __tablename__ = "orders"
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
-    address_id = Column(Integer, ForeignKey("addresses.id"))
+    address_id = Column(Integer, ForeignKey("addresses.id"), nullable=True) # Optional for POS
     total_price = Column(Float)
-    status = Column(String, default="pending")
-    payment_method = Column(String)
-    stripe_session_id = Column(String, nullable=True) # For Stripe Payment tracking
+    status = Column(Enum(OrderStatus), default=OrderStatus.PENDING)
+    payment_method = Column(Enum(PaymentMethod))
+    order_type = Column(Enum(OrderType), default=OrderType.ONLINE)
+    stripe_session_id = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
@@ -68,8 +96,8 @@ class Payment(Base):
     __tablename__ = "payments"
     id = Column(Integer, primary_key=True, index=True)
     order_id = Column(Integer, ForeignKey("orders.id"))
-    method = Column(String)
-    status = Column(String)
+    method = Column(Enum(PaymentMethod))
+    status = Column(String) # success, failed
     paid_at = Column(DateTime, default=datetime.datetime.utcnow)
 
 class Country(Base):
