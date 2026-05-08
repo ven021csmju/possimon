@@ -16,7 +16,7 @@ app = FastAPI(title="PoSimon Backend")
 # Middleware
 app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
 
-ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",")
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173").split(",")
 
 app.add_middleware(
     CORSMiddleware,
@@ -73,10 +73,10 @@ def terms():
     """
 
 # Include Routers
-app.include_router(auth.router)
-app.include_router(products.router)
-app.include_router(orders.router)
-app.include_router(users.router)
-app.include_router(payments.router)
-app.include_router(wines.router)
-app.include_router(websocket.router)
+app.include_router(auth.router, prefix="/api/auth")
+app.include_router(products.router, prefix="/api")
+app.include_router(orders.router, prefix="/api")
+app.include_router(users.router, prefix="/api")
+app.include_router(payments.router, prefix="/api/payments")
+app.include_router(wines.router, prefix="/api/wines")
+app.include_router(websocket.router, prefix="/api")

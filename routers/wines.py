@@ -8,7 +8,7 @@ import schemas
 import models
 from auth.dependencies import get_db, RoleChecker
 
-router = APIRouter()
+router = APIRouter(prefix="/wines", tags=["wines"])
 admin_required = RoleChecker(["admin"])
 
 @router.post("/countries", response_model=schemas.CountryOut)
@@ -59,7 +59,7 @@ def create_grape(
 def get_grapes(db: Session = Depends(get_db)):
     return crud.get_grapes(db)
 
-@router.post("/wines", response_model=schemas.WineOut)
+@router.post("", response_model=schemas.WineOut)
 def create_wine(
     wine: schemas.WineCreate,
     db: Session = Depends(get_db),
@@ -67,7 +67,7 @@ def create_wine(
 ):
     return crud.create_wine(db, wine)
 
-@router.get("/wines", response_model=List[schemas.WineOut])
+@router.get("", response_model=List[schemas.WineOut])
 def get_wines(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
@@ -83,12 +83,12 @@ def create_rating(
 ):
     return crud.create_rating(db, rating)
 
-@router.get("/wines/{wine_id}/ratings", response_model=List[schemas.RatingOut])
+@router.get("/{wine_id}/ratings", response_model=List[schemas.RatingOut])
 def get_wine_ratings(wine_id: int, db: Session = Depends(get_db)):
     return crud.get_wine_ratings(db, wine_id)
     
-@router.get("/wine")
-def get_wine(current_user: models.User = Depends(admin_required)):
+@router.get("/external-api")
+def get_wine_external(current_user: models.User = Depends(admin_required)):
     try:
         url = "https://api.grapeminds.eu/public/v1/wines"
         headers = {
