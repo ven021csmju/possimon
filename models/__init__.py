@@ -14,6 +14,7 @@ class OrderStatus(enum.Enum):
 class PaymentMethod(enum.Enum):
     CASH = "cash"
     PROMPTPAY = "promptpay"
+    QR = "qr"
     CREDIT_CARD = "credit_card"
     TRANSFER = "transfer"
 

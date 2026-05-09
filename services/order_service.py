@@ -4,24 +4,44 @@ import models
 import schemas
 
 def create_order(db: Session, order: schemas.OrderCreate, user_id: int):
-    # 1. Get unique product IDs and sort them to prevent deadlocks
+    # 1. Resolve SKUs to product IDs if needed
+    for item in order.items:
+        if not item.product_id and item.sku:
+            product = db.query(models.Product).filter(models.Product.sku == item.sku).first()
+            if not product:
+                # Try to see if SKU is actually an ID passed as string
+                try:
+                    product = db.query(models.Product).filter(models.Product.id == int(item.sku)).first()
+                except ValueError:
+                    pass
+            
+            if product:
+                item.product_id = product.id
+            else:
+                raise HTTPException(status_code=404, detail=f"Product with SKU {item.sku} not found")
+        
+        if not item.product_id:
+            raise HTTPException(status_code=400, detail="Product ID or SKU is required")
+
+    # 2. Get unique product IDs and sort them to prevent deadlocks
     product_ids = sorted(list(set(item.product_id for item in order.items)))
 
     # Use a transaction block for atomicity
     try:
-        # Check address for Online orders
-        if order.order_type == schemas.OrderType.ONLINE:
-            if not order.address_id:
-                raise HTTPException(status_code=400, detail="Address is required for online orders")
-            
+        # Check address for Online orders - relax this for compatibility if address_id is missing
+        if order.order_type == schemas.OrderType.ONLINE and order.address_id:
             address = db.query(models.Address).filter(
                 models.Address.id == order.address_id,
                 models.Address.user_id == user_id
             ).first()
             if not address:
                 raise HTTPException(status_code=404, detail="Address not found")
+        elif order.order_type == schemas.OrderType.ONLINE and not order.address_id:
+            # For now, allow online orders without address if frontend doesn't provide it
+            # Or we could pick a default address if exists
+            pass
 
-        # 2. Lock product rows to ensure atomic stock update
+        # 3. Lock product rows to ensure atomic stock update
         products = db.query(models.Product).filter(
             models.Product.id.in_(product_ids)
         ).with_for_update().all()

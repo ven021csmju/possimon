@@ -14,6 +14,7 @@ class OrderStatus(str, enum.Enum):
 class PaymentMethod(str, enum.Enum):
     CASH = "cash"
     PROMPTPAY = "promptpay"
+    QR = "qr"
     CREDIT_CARD = "credit_card"
     TRANSFER = "transfer"
 
@@ -49,8 +50,10 @@ class ProductOut(BaseModel):
         from_attributes = True
 
 class OrderItemCreate(BaseModel):
-    product_id: int = Field(..., gt=0)
+    product_id: Optional[int] = Field(None, gt=0)
+    sku: Optional[str] = None
     quantity: int = Field(..., gt=0)
+    price: Optional[float] = None
 
 class OrderItemOut(BaseModel):
     id: int
@@ -67,6 +70,7 @@ class OrderCreate(BaseModel):
     payment_method: PaymentMethod
     order_type: OrderType = OrderType.ONLINE
     items: List[OrderItemCreate] = Field(..., min_length=1)
+    total_amount: Optional[float] = None # Added for frontend compatibility
 
 class OrderOut(BaseModel):
     id: int
