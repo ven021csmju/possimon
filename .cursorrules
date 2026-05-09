@@ -1,0 +1,61 @@
+You are coding for the PoSimon Backend project. Follow these rules strictly.
+
+## Project
+- FastAPI + SQLAlchemy + PostgreSQL (SQLite for local dev)
+- Layered: routers/ → services/ → crud/ → models/
+
+## Conventions
+
+### Structure
+| Directory | What goes here |
+|-----------|---------------|
+| `routers/` | Endpoint definitions, DI only |
+| `services/` | Business logic, transactions |
+| `crud/` | Simple DB queries |
+| `models/` | SQLAlchemy models (all in `__init__.py`) |
+| `schemas/` | Pydantic schemas (all in `__init__.py`) |
+
+### Naming
+- Files: snake_case, plural (`products.py`)
+- Classes: PascalCase, singular (`User`, `OrderItem`)
+- Router prefix: plural (`/products`, `/wines`)
+- Functions/variables: snake_case
+- API tags: lowercase plural
+
+### Router pattern
+```python
+router = APIRouter(prefix="/products", tags=["products"])
+
+@router.get("", response_model=List[schemas.ProductOut])
+def get_products(db: Session = Depends(get_db)):
+    return crud.get_products(db)
+```
+
+### Auth
+- `RoleChecker(["admin"])` for admin endpoints
+- `get_current_user` for any authenticated user
+- `Depends(security)` with `HTTPBearer()`
+
+### Imports
+- Absolute only: `import models`, `import schemas`
+- `Session` from `sqlalchemy.orm`
+
+### Pydantic (v2)
+- `model_dump()` not `.dict()`
+- Config: `from_attributes = True`
+- Use `Field(...)` for validation
+
+### SQLAlchemy
+- `relationship()` + `back_populates` (no `backref`)
+- `with_for_update()` for stock operations
+- Timestamp: `default=datetime.datetime.utcnow`
+
+### Error Handling
+- `HTTPException` from fastapi only
+- Status: 400, 404, 401, 403, 500
+
+### General
+- One resource per router file
+- No comments unless complex logic
+- Enum models: `class MyEnum(enum.Enum)` with lowercase strings
+- Schema enums: `class MyEnum(str, enum.Enum)` mirroring models
