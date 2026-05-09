@@ -66,17 +66,21 @@ class OrderItemOut(BaseModel):
         from_attributes = True
 
 class OrderCreate(BaseModel):
+    user_id: Optional[int] = None # For compatibility, though we use token
     address_id: Optional[int] = Field(None, gt=0) # Optional for POS
     payment_method: PaymentMethod
     order_type: OrderType = OrderType.ONLINE
     items: List[OrderItemCreate] = Field(..., min_length=1)
-    total_amount: Optional[float] = None # Added for frontend compatibility
+    total_amount: Optional[float] = None 
+    received_amount: Optional[float] = None
+    change_amount: Optional[float] = None
 
 class OrderOut(BaseModel):
     id: int
     user_id: int
     address_id: Optional[int]
     total_price: float
+    total_amount: Optional[float] = None # Duplicate for frontend compatibility
     status: OrderStatus
     payment_method: PaymentMethod
     order_type: OrderType
@@ -85,6 +89,14 @@ class OrderOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+    @classmethod
+    def from_orm(cls, obj):
+        # Ensure total_amount is populated from total_price
+        data = super().from_orm(obj)
+        if hasattr(data, 'total_price') and not data.total_amount:
+            data.total_amount = data.total_price
+        return data
 
 class UserCreate(BaseModel):
     first_name: str = Field(..., min_length=1, max_length=100)
