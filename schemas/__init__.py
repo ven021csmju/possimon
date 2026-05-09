@@ -50,8 +50,8 @@ class ProductOut(BaseModel):
         from_attributes = True
 
 class OrderItemCreate(BaseModel):
-    product_id: Optional[int] = Field(None, gt=0)
-    sku: Optional[str] = None
+    product_id: int = Field(..., gt=0, description="The unique database ID of the product")
+    sku: Optional[str] = Field(None, description="Optional SKU for reference")
     quantity: int = Field(..., gt=0)
     price: Optional[float] = None
 
