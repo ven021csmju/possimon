@@ -150,7 +150,6 @@ class Wine(Product):
     vintage = Column(Integer)
     alcohol = Column(Float)
     description = Column(String)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
     winery = relationship("Winery", back_populates="wines")
     region = relationship("Region", back_populates="wines")
