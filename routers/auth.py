@@ -66,21 +66,29 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
 
 @router.get("/login/google")
 async def login_google(request: Request):
-    redirect_uri = request.url_for("auth_google")
-    if "onrender.com" in str(redirect_uri):
-        redirect_uri = str(redirect_uri).replace("http://", "https://")
-    return await oauth.google.authorize_redirect(request, redirect_uri)
+    # Use request.url_for to get the internal route URL
+    callback_url = request.url_for("auth_google")
+    
+    # Render Force HTTPS logic
+    if "onrender.com" in str(callback_url):
+        callback_url = str(callback_url).replace("http://", "https://")
+    
+    return await oauth.google.authorize_redirect(request, str(callback_url))
 
-@router.get("/auth/google/callback")
+@router.get("/google/callback", name="auth_google")
 async def auth_google(request: Request, db: Session = Depends(get_db)):
     try:
         token = await oauth.google.authorize_access_token(request)
     except Exception as e:
+        # Logging error would be better here
         raise HTTPException(status_code=400, detail=f"OAuth error: {str(e)}")
 
     resp = await oauth.google.get('https://www.googleapis.com/oauth2/v2/userinfo', token=token)
     user_info = resp.json()
     email = user_info.get("email")
+
+    if not email:
+        raise HTTPException(status_code=400, detail="Email not provided by Google")
 
     user = db.query(models.User).filter(models.User.email == email).first()
     if not user:
@@ -98,16 +106,25 @@ async def auth_google(request: Request, db: Session = Depends(get_db)):
         db.refresh(user)
 
     jwt_token = create_access_token({"user_id": user.id, "role": user.role})
+    
+    # Redirect to frontend with token
     return RedirectResponse(url=f"{FRONTEND_URL}?token={jwt_token}")
 
 @router.get("/login/line")
 async def login_line(request: Request):
     redirect_uri = request.url_for("auth_line")
+
     if "onrender.com" in str(redirect_uri):
         redirect_uri = str(redirect_uri).replace("http://", "https://")
-    return await oauth.line.authorize_redirect(request, redirect_uri)
 
-@router.get("/auth/line/callback")
+    print("LINE REDIRECT URI =", redirect_uri)
+
+    return await oauth.line.authorize_redirect(
+        request,
+        redirect_uri
+    )
+
+@router.get("/line/callback")
 async def auth_line(request: Request, db: Session = Depends(get_db)):
     try:
         token = await oauth.line.authorize_access_token(request)
@@ -145,7 +162,7 @@ async def login_facebook(request: Request):
         redirect_uri = str(redirect_uri).replace("http://", "https://")
     return await oauth.facebook.authorize_redirect(request, redirect_uri)
 
-@router.get("/auth/facebook/callback")
+@router.get("/facebook/callback")
 async def auth_facebook(request: Request, db: Session = Depends(get_db)):
     try:
         token = await oauth.facebook.authorize_access_token(request)
