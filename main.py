@@ -23,7 +23,7 @@ app.add_middleware(
     allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["Authorization", "Content-Type", "Accept", "Origin"],
 )
 
 # Startup event
@@ -80,3 +80,4 @@ app.include_router(users.router, prefix="/api")
 app.include_router(payments.router, prefix="/api/payments")
 app.include_router(wines.router, prefix="/api/wines")
 app.include_router(websocket.router, prefix="/api")
+

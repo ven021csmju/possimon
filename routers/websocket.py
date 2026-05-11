@@ -1,5 +1,7 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, status
 from typing import List
+from jose import jwt, JWTError
+from core.security import SECRET_KEY, ALGORITHM
 
 router = APIRouter()
 
@@ -27,7 +29,18 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 @router.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
+async def websocket_endpoint(websocket: WebSocket, token: str = Query(None)):
+    if token is None:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    try:
+        # Verify JWT token
+        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
     await manager.connect(websocket)
     try:
         while True:
