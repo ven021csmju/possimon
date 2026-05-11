@@ -16,7 +16,7 @@ app = FastAPI(title="PoSimon Backend")
 # Middleware
 app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
 
-ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173").split(",")
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "https://the-bottel-club-premium.vercel.app,http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173").split(",")
 
 app.add_middleware(
     CORSMiddleware,

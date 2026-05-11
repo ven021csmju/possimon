@@ -11,7 +11,7 @@ import schemas
 
 router = APIRouter(tags=["auth"])
 
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000/auth/success")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "https://the-bottel-club-premium.vercel.app/auth/success")
 
 @router.post("/login")
 def login(request: schemas.LoginRequest, db: Session = Depends(get_db)):

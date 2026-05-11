@@ -34,8 +34,8 @@ uvicorn main:app --reload
 ```env
 DATABASE_URL=sqlite:///./test.db
 SECRET_KEY=your_secret_key
-ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
-FRONTEND_URL=http://localhost:3000/auth/success
+ALLOWED_ORIGINS=https://the-bottel-club-premium.vercel.app,http://localhost:3000,http://localhost:5173
+FRONTEND_URL=https://the-bottel-club-premium.vercel.app/auth/success
 
 # OAuth (optional)
 GOOGLE_CLIENT_ID=
