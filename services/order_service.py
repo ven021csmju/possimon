@@ -3,6 +3,11 @@ from fastapi import HTTPException
 import models
 import schemas
 
+def normalize_payment_method(payment_method: schemas.PaymentMethod):
+    if payment_method == schemas.PaymentMethod.QR:
+        return models.PaymentMethod.PROMPTPAY
+    return models.PaymentMethod(payment_method.value)
+
 def create_order(db: Session, order: schemas.OrderCreate, user_id: int):
     # 1. Ensure all items have a valid product_id
     for item in order.items:
@@ -53,11 +58,13 @@ def create_order(db: Session, order: schemas.OrderCreate, user_id: int):
                     detail=f"Insufficient stock for product '{product.name}' (Requested: {item.quantity}, Available: {product.stock})"
                 )
 
+        payment_method = normalize_payment_method(order.payment_method)
+
         # 4. Create Order
         db_order = models.Order(
             user_id=user_id,
             address_id=order.address_id,
-            payment_method=models.PaymentMethod(order.payment_method.value),
+            payment_method=payment_method,
             order_type=models.OrderType(order.order_type.value),
             total_price=0,
             status=models.OrderStatus.PENDING
@@ -90,7 +97,7 @@ def create_order(db: Session, order: schemas.OrderCreate, user_id: int):
         # 5. Create Payment
         db_payment = models.Payment(
             order_id=db_order.id,
-            method=models.PaymentMethod(order.payment_method.value),
+            method=payment_method,
             status="pending" # Initial status for payment record
         )
         db.add(db_payment)

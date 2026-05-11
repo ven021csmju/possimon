@@ -14,13 +14,15 @@ class OrderStatus(enum.Enum):
 class PaymentMethod(enum.Enum):
     CASH = "cash"
     PROMPTPAY = "promptpay"
-    QR = "qr"
     CREDIT_CARD = "credit_card"
     TRANSFER = "transfer"
 
 class OrderType(enum.Enum):
     POS = "pos"
     ONLINE = "online"
+
+def enum_values(enum_class):
+    return [member.value for member in enum_class]
 
 class User(Base):
     __tablename__ = "users"
@@ -74,9 +76,9 @@ class Order(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     address_id = Column(Integer, ForeignKey("addresses.id"), nullable=True) # Optional for POS
     total_price = Column(Float)
-    status = Column(Enum(OrderStatus), default=OrderStatus.PENDING)
-    payment_method = Column(Enum(PaymentMethod))
-    order_type = Column(Enum(OrderType), default=OrderType.ONLINE)
+    status = Column(Enum(OrderStatus, values_callable=enum_values), default=OrderStatus.PENDING)
+    payment_method = Column(Enum(PaymentMethod, values_callable=enum_values))
+    order_type = Column(Enum(OrderType, values_callable=enum_values), default=OrderType.ONLINE)
     stripe_session_id = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
@@ -97,7 +99,7 @@ class Payment(Base):
     __tablename__ = "payments"
     id = Column(Integer, primary_key=True, index=True)
     order_id = Column(Integer, ForeignKey("orders.id"))
-    method = Column(Enum(PaymentMethod))
+    method = Column(Enum(PaymentMethod, values_callable=enum_values))
     status = Column(String) # success, failed
     paid_at = Column(DateTime, default=datetime.datetime.utcnow)
 
