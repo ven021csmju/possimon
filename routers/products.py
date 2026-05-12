@@ -18,3 +18,21 @@ def create_product(
     current_user = Depends(RoleChecker(["admin", "manager"])),
 ):
     return crud.create_product(db, product)
+
+@router.put("/{product_id}", response_model=schemas.ProductOut)
+def update_product(
+    product_id: int,
+    product: schemas.ProductUpdate,
+    db: Session = Depends(get_db),
+    current_user = Depends(RoleChecker(["admin", "manager"])),
+):
+    return crud.update_product(db, product_id, product)
+
+@router.post("/{product_id}/refill", response_model=schemas.ProductOut)
+def refill_stock(
+    product_id: int,
+    refill: schemas.StockRefill,
+    db: Session = Depends(get_db),
+    current_user = Depends(RoleChecker(["admin", "manager", "cashier"])),
+):
+    return crud.refill_stock(db, product_id, refill)

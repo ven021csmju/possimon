@@ -1,4 +1,3 @@
-import os
 import requests
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
@@ -7,6 +6,7 @@ import crud
 import schemas
 import models
 from auth.dependencies import get_db, RoleChecker
+from core.config import settings
 
 router = APIRouter(prefix="/wines", tags=["wines"])
 admin_required = RoleChecker(["admin"])
@@ -75,6 +75,15 @@ def get_wines(
 ):
     return crud.get_wines(db, skip=skip, limit=limit)
 
+@router.put("/{wine_id}", response_model=schemas.WineOut)
+def update_wine(
+    wine_id: int,
+    wine: schemas.WineUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(RoleChecker(["admin", "manager"])),
+):
+    return crud.update_wine(db, wine_id, wine)
+
 @router.post("/ratings", response_model=schemas.RatingOut)
 def create_rating(
     rating: schemas.RatingCreate,
@@ -92,7 +101,7 @@ def get_wine_external(current_user: models.User = Depends(admin_required)):
     try:
         url = "https://api.grapeminds.eu/public/v1/wines"
         headers = {
-            "Authorization": f"Bearer {os.getenv('API_KEY')}"
+            "Authorization": f"Bearer {settings.WINE_API_KEY}"
         }
         response = requests.get(url, headers=headers)
         return {

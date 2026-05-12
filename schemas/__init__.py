@@ -36,6 +36,21 @@ class ProductCreate(BaseModel):
     image_url: Optional[str] = None
     status: str = "active"
 
+class ProductUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=255)
+    sku: Optional[str] = Field(None, max_length=100)
+    barcode: Optional[str] = Field(None, max_length=100)
+    cost_price: Optional[float] = Field(None, ge=0)
+    selling_price: Optional[float] = Field(None, gt=0)
+    price: Optional[float] = Field(None, gt=0)
+    stock: Optional[int] = Field(None, ge=0)
+    low_stock_alert: Optional[int] = Field(None, ge=0)
+    image_url: Optional[str] = None
+    status: Optional[str] = None
+
+class StockRefill(BaseModel):
+    quantity: int = Field(..., gt=0, description="Amount to add to current stock")
+
 class ProductOut(BaseModel):
     id: int
     name: str
@@ -122,9 +137,19 @@ class UserOut(BaseModel):
     last_name: str
     email: EmailStr
     username: str
+    role: str
 
     class Config:
         from_attributes = True
+
+class EmployeeCreate(UserCreate):
+    role: str = Field(..., pattern="^(admin|manager|cashier)$")
+
+class EmployeeUpdate(UserUpdate):
+    role: Optional[str] = Field(None, pattern="^(admin|manager|cashier)$")
+
+class EmployeeOut(UserOut):
+    pass
 
 class AddressCreate(BaseModel):
     address_line: str = Field(..., min_length=1, max_length=255)
@@ -204,6 +229,20 @@ class WineCreate(BaseModel):
     alcohol: Optional[float] = Field(default=None, ge=0, le=100)
     description: Optional[str] = None
     grape_ids: List[int] = Field(default_factory=list)
+
+class WineUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=255)
+    price: Optional[float] = Field(None, gt=0)
+    stock: Optional[int] = Field(None, ge=0)
+    designation: Optional[str] = Field(None, max_length=255)
+    winery_id: Optional[int] = Field(None, gt=0)
+    region_id: Optional[int] = Field(None, gt=0)
+    country_id: Optional[int] = Field(None, gt=0)
+    wine_type: Optional[str] = Field(None, max_length=50)
+    vintage: Optional[int] = Field(None, ge=1000, le=9999)
+    alcohol: Optional[float] = Field(None, ge=0, le=100)
+    description: Optional[str] = None
+    grape_ids: Optional[List[int]] = None
 
 class WineOut(ProductOut):
     designation: Optional[str] = None

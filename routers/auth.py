@@ -5,13 +5,14 @@ import os
 import secrets
 from auth.dependencies import get_db
 from core.security import verify_password, create_access_token, hash_password
+from core.config import settings
 from auth.oauth import oauth
 import models
 import schemas
 
 router = APIRouter(tags=["auth"])
 
-FRONTEND_URL = os.getenv("FRONTEND_URL", "https://the-bottel-club-premium.vercel.app/auth/success")
+FRONTEND_URL = settings.FRONTEND_URL
 
 @router.post("/login")
 def login(request: schemas.LoginRequest, db: Session = Depends(get_db)):

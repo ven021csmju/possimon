@@ -2,6 +2,9 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException
 import models
 import schemas
+import logging
+
+logger = logging.getLogger("possimon")
 
 def normalize_payment_method(payment_method: schemas.PaymentMethod):
     if payment_method == schemas.PaymentMethod.QR:
@@ -9,6 +12,7 @@ def normalize_payment_method(payment_method: schemas.PaymentMethod):
     return models.PaymentMethod(payment_method.value)
 
 def create_order(db: Session, order: schemas.OrderCreate, user_id: int):
+    logger.info(f"Creating order for user_id={user_id}, type={order.order_type}, items_count={len(order.items)}")
     # 1. Ensure all items have a valid product_id
     for item in order.items:
         if not item.product_id:
@@ -18,11 +22,13 @@ def create_order(db: Session, order: schemas.OrderCreate, user_id: int):
                 if product:
                     item.product_id = product.id
                 else:
+                    logger.warning(f"Product SKU '{item.sku}' not found during order creation")
                     raise HTTPException(
                         status_code=400, 
                         detail=f"Product with SKU '{item.sku}' not found and no product_id provided"
                     )
             else:
+                logger.warning("Order item missing both product_id and sku")
                 raise HTTPException(status_code=400, detail="Each item must have a product_id or a valid sku")
 
     # 2. Get unique product IDs and sort them to prevent deadlocks
@@ -37,6 +43,7 @@ def create_order(db: Session, order: schemas.OrderCreate, user_id: int):
                 models.Address.user_id == user_id
             ).first()
             if not address:
+                logger.warning(f"Address ID {order.address_id} not found for user {user_id}")
                 raise HTTPException(status_code=404, detail=f"Address ID {order.address_id} not found for this user")
         
         # 3. Lock product rows and validate existence in one go
@@ -49,10 +56,12 @@ def create_order(db: Session, order: schemas.OrderCreate, user_id: int):
         # 4. Validate stock and existence
         for item in order.items:
             if item.product_id not in product_map:
+                logger.error(f"Product ID {item.product_id} unexpectedly not found after locking")
                 raise HTTPException(status_code=404, detail=f"Product ID {item.product_id} not found in database")
             
             product = product_map[item.product_id]
             if product.stock < item.quantity:
+                logger.warning(f"Insufficient stock for product {product.id} ({product.name}): Req={item.quantity}, Avail={product.stock}")
                 raise HTTPException(
                     status_code=400, 
                     detail=f"Insufficient stock for product '{product.name}' (Requested: {item.quantity}, Available: {product.stock})"
@@ -91,6 +100,7 @@ def create_order(db: Session, order: schemas.OrderCreate, user_id: int):
 
             # Update Stock
             product.stock -= item.quantity
+            logger.debug(f"Reduced stock for product {product.id} by {item.quantity}. New stock: {product.stock}")
 
         db_order.total_price = total_price
 
@@ -105,11 +115,14 @@ def create_order(db: Session, order: schemas.OrderCreate, user_id: int):
         # Commit everything as one atomic unit
         db.commit()
         db.refresh(db_order)
+        logger.info(f"Order created successfully: order_id={db_order.id}, total={db_order.total_price}")
         return db_order
 
-    except HTTPException:
+    except HTTPException as e:
         db.rollback()
+        logger.warning(f"Order creation failed (Client Error): {e.detail}")
         raise
     except Exception as e:
         db.rollback()
+        logger.error(f"Critical error during order creation: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))

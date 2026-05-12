@@ -1,14 +1,11 @@
 from datetime import datetime, timedelta, timezone
 from jose import jwt
 from passlib.context import CryptContext
-import os
-from dotenv import load_dotenv
+from core.config import settings
 
-load_dotenv()
-
-SECRET_KEY = os.getenv("SECRET_KEY", "dev_secret_only")
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_HOURS = 2
+SECRET_KEY = settings.SECRET_KEY
+ALGORITHM = settings.ALGORITHM
+ACCESS_TOKEN_EXPIRE_HOURS = settings.ACCESS_TOKEN_EXPIRE_HOURS
 
 # Switch to pbkdf2_sha256 which is robust and doesn't have the 72-byte limit
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")

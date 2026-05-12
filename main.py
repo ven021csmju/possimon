@@ -1,26 +1,28 @@
 import os
-from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from database import Base, SessionLocal, engine
 from seed import seed_data
-from core.security import SECRET_KEY
-from routers import auth, products, orders, users, payments, wines, websocket
+from core.config import settings
+from core.logging_config import setup_logging
+from routers import auth, products, orders, users, payments, wines, websocket, employees, customers
 
-load_dotenv()
+# Initialize logging
+logger = setup_logging()
 
-app = FastAPI(title="PoSimon Backend")
+app = FastAPI(
+    title=settings.PROJECT_NAME,
+    version=settings.VERSION
+)
 
 # Middleware
-app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
-
-ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "https://the-bottel-club-premium.vercel.app,http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173").split(",")
+app.add_middleware(SessionMiddleware, secret_key=settings.SECRET_KEY)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
+    allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["Authorization", "Content-Type", "Accept", "Origin"],
@@ -29,16 +31,21 @@ app.add_middleware(
 # Startup event
 @app.on_event("startup")
 def startup_event():
+    logger.info("Starting up the application...")
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     try:
         seed_data(db)
+        logger.info("Database seeded successfully.")
+    except Exception as e:
+        logger.error(f"Error during startup seeding: {e}")
     finally:
         db.close()
 
 # Global Exception Handler
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Unhandled Exception: {exc}", exc_info=True)
     return JSONResponse(
         status_code=500,
         content={"message": "Internal Server Error", "detail": str(exc)},
@@ -74,6 +81,8 @@ def terms():
 
 # Include Routers
 app.include_router(auth.router, prefix="/api/auth")
+app.include_router(employees.router, prefix="/api")
+app.include_router(customers.router, prefix="/api")
 app.include_router(products.router, prefix="/api")
 app.include_router(orders.router, prefix="/api")
 app.include_router(users.router, prefix="/api")

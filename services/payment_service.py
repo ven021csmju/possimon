@@ -1,24 +1,47 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 import models
+import logging
+
+logger = logging.getLogger("possimon")
 
 async def confirm_payment(order_id: int, db: Session, user, manager):
+    logger.info(f"Confirming payment for order_id={order_id} by user_id={user.id}")
     db_order = db.query(models.Order).filter(models.Order.id == order_id).first()
     if not db_order:
+        logger.warning(f"Payment confirmation failed: Order {order_id} not found")
         raise HTTPException(status_code=404, detail="Order not found")
     
     # Allow if user is admin OR the owner of the order
     if user.role != "admin" and db_order.user_id != user.id:
+        logger.warning(f"User {user.id} unauthorized to confirm payment for order {order_id}")
         raise HTTPException(status_code=403, detail="You do not have permission to confirm this payment")
 
-    db_order.status = "paid"
-    db.commit()
+    if db_order.status == "paid":
+        logger.info(f"Order {order_id} is already marked as paid")
+        return {"message": "Order is already paid"}
 
-    # Notify all connected clients (especially the dashboard)
-    await manager.broadcast({
-        "type": "payment",
-        "order_id": order_id,
-        "status": "paid"
-    })
+    try:
+        db_order.status = "paid"
+        
+        # Also update the associated payment record if it exists
+        payment = db.query(models.Payment).filter(models.Payment.order_id == order_id).first()
+        if payment:
+            payment.status = "success"
+            
+        db.commit()
+        logger.info(f"Order {order_id} status updated to 'paid' in DB")
 
-    return {"message": "Payment confirmed and notification sent"}
+        # Notify all connected clients (especially the dashboard)
+        await manager.broadcast({
+            "type": "payment",
+            "order_id": order_id,
+            "status": "paid"
+        })
+        logger.debug(f"Broadcasted payment confirmation for order {order_id}")
+
+        return {"message": "Payment confirmed and notification sent"}
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error during payment confirmation for order {order_id}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error during payment confirmation")

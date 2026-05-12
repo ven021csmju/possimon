@@ -11,8 +11,9 @@ def seed_data(db: Session):
 
     # 1. Users
     admin = User(first_name="Admin", last_name="User", email="admin@example.com", phone="1234567890", username="admin", password=hash_password("admin123"), role="admin")
+    cashier = User(first_name="Somsak", last_name="Cashier", email="cashier@example.com", phone="0812345678", username="cashier01", password=hash_password("cashier123"), role="cashier")
     john = User(first_name="John", last_name="Doe", email="john@example.com", phone="0987654321", username="john_doe", password=hash_password("password123"), role="customer")
-    db.add_all([admin, john])
+    db.add_all([admin, cashier, john])
     db.commit()
 
     # 2. Addresses
