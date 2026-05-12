@@ -51,6 +51,15 @@ async def global_exception_handler(request: Request, exc: Exception):
         content={"message": "Internal Server Error", "detail": str(exc)},
     )
 
+# Root / Health Check
+@app.get("/")
+def health_check():
+    return {
+        "status": "online",
+        "project": settings.PROJECT_NAME,
+        "version": settings.VERSION
+    }
+
 # Static/Legal Routes
 @app.get("/privacy", response_class=HTMLResponse)
 def privacy():
