@@ -101,7 +101,7 @@ def get_wine_external(current_user: models.User = Depends(admin_required)):
     try:
         url = "https://api.grapeminds.eu/public/v1/wines"
         headers = {
-            "Authorization": f"Bearer {settings.WINE_API_KEY}"
+            "Authorization": f"Bearer {settings.API_KEY}"
         }
         response = requests.get(url, headers=headers)
         return {

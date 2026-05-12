@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import List
+from typing import List, Optional
 import os
 
 class Settings(BaseSettings):
@@ -9,12 +9,12 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api"
     
     # Security
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "dev_secret_key_change_me_in_prod")
+    SECRET_KEY: str = "dev_secret_key_change_me_in_prod"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_HOURS: int = 24
     
     # Database
-    DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./possimon.db")
+    DATABASE_URL: str = "sqlite:///./possimon.db"
     
     # CORS
     ALLOWED_ORIGINS: List[str] = [
@@ -25,16 +25,25 @@ class Settings(BaseSettings):
     ]
     
     # External APIs
-    WINE_API_KEY: str = os.getenv("API_KEY", "")
-    FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:3000/auth/success")
+    API_KEY: str = "" # Map directly to API_KEY in .env
+    FRONTEND_URL: str = "http://localhost:3000/auth/success"
+    
+    # Social Login
+    GOOGLE_CLIENT_ID: Optional[str] = None
+    GOOGLE_CLIENT_SECRET: Optional[str] = None
+    LINE_CHANNEL_ID: Optional[str] = None
+    LINE_CHANNEL_SECRET: Optional[str] = None
+    FACEBOOK_APP_ID: Optional[str] = None
+    FACEBOOK_APP_SECRET: Optional[str] = None
     
     # Environment
-    ENV: str = os.getenv("ENV", "dev") # dev, production
+    ENV: str = "dev" # dev, production
 
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
-        case_sensitive=True
+        case_sensitive=True,
+        extra="ignore" # Allow extra env variables without crashing
     )
 
 settings = Settings()
