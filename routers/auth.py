@@ -15,7 +15,8 @@ router = APIRouter(tags=["auth"])
 FRONTEND_URL = settings.FRONTEND_URL
 
 @router.post("/login")
-def login(request: schemas.LoginRequest, db: Session = Depends(get_db)):
+@router.post("/login/pos")
+def login_pos(request: schemas.LoginRequest, db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.username == request.username).first()
 
     if not user or not verify_password(request.password, user.password):
@@ -27,6 +28,21 @@ def login(request: schemas.LoginRequest, db: Session = Depends(get_db)):
     })
 
     return {"access_token": token}
+
+@router.post("/login/web")
+def login_web(request: schemas.LoginRequest, db: Session = Depends(get_db)):
+    user = db.query(models.User).filter(models.User.username == request.username).first()
+
+    if not user or not verify_password(request.password, user.password):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    token = create_access_token({
+        "user_id": user.id,
+        "role": user.role
+    })
+
+    # Redirect to friend's web with token in URL
+    return RedirectResponse(url=f"{FRONTEND_URL}?token={token}", status_code=303)
 
 @router.post("/register")
 def register(user: schemas.UserCreate, db: Session = Depends(get_db)):

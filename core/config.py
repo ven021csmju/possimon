@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     
     # External APIs
     API_KEY: str = "" # Map directly to API_KEY in .env
-    FRONTEND_URL: str = "http://localhost:3000/auth/success"
+    FRONTEND_URL: str = "https://the-bottel-club-premium.vercel.app/auth/success"
     
     # Social Login
     GOOGLE_CLIENT_ID: Optional[str] = None
