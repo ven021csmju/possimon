@@ -36,6 +36,12 @@ class Settings(BaseSettings):
     FACEBOOK_APP_ID: Optional[str] = None
     FACEBOOK_APP_SECRET: Optional[str] = None
     
+    # Cookie Settings
+    COOKIE_NAME: str = "access_token"
+    COOKIE_SECURE: bool = True
+    COOKIE_SAMESITE: str = "none" # "lax", "strict", or "none"
+    COOKIE_DOMAIN: Optional[str] = None # Set to your domain in production
+
     # Environment
     ENV: str = "dev" # dev, production
 

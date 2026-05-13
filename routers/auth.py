@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 import os
 import secrets
-from auth.dependencies import get_db
+from auth.dependencies import get_db, get_current_user
 from core.security import verify_password, create_access_token, hash_password
 from core.config import settings
 from auth.oauth import oauth
@@ -14,9 +14,20 @@ router = APIRouter(tags=["auth"])
 
 FRONTEND_URL = settings.FRONTEND_URL
 
+def set_auth_cookie(response: Response, token: str):
+    response.set_cookie(
+        key=settings.COOKIE_NAME,
+        value=token,
+        httponly=True,
+        secure=settings.COOKIE_SECURE,
+        samesite=settings.COOKIE_SAMESITE,
+        domain=settings.COOKIE_DOMAIN,
+        max_age=settings.ACCESS_TOKEN_EXPIRE_HOURS * 3600
+    )
+
 @router.post("/login")
 @router.post("/login/pos")
-def login_pos(request: schemas.LoginRequest, db: Session = Depends(get_db)):
+def login_pos(request: schemas.LoginRequest, response: Response, db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.username == request.username).first()
 
     if not user or not verify_password(request.password, user.password):
@@ -26,8 +37,10 @@ def login_pos(request: schemas.LoginRequest, db: Session = Depends(get_db)):
         "user_id": user.id,
         "role": user.role
     })
+    
+    set_auth_cookie(response, token)
 
-    return {"access_token": token}
+    return {"access_token": token, "message": "Login success"}
 
 @router.post("/login/web")
 def login_web(request: schemas.LoginRequest, db: Session = Depends(get_db)):
@@ -41,8 +54,25 @@ def login_web(request: schemas.LoginRequest, db: Session = Depends(get_db)):
         "role": user.role
     })
 
-    # Redirect to friend's web with token in URL
-    return RedirectResponse(url=f"{FRONTEND_URL}?token={token}", status_code=303)
+    # Redirect to frontend and set cookie
+    response = RedirectResponse(url=FRONTEND_URL, status_code=303)
+    set_auth_cookie(response, token)
+    return response
+
+@router.post("/logout")
+def logout(response: Response):
+    response.delete_cookie(
+        key=settings.COOKIE_NAME,
+        httponly=True,
+        secure=settings.COOKIE_SECURE,
+        samesite=settings.COOKIE_SAMESITE,
+        domain=settings.COOKIE_DOMAIN
+    )
+    return {"message": "Logged out successfully"}
+
+@router.get("/me", response_model=schemas.UserOut)
+def get_me(user: models.User = Depends(get_current_user)):
+    return user
 
 @router.post("/register")
 def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
@@ -97,7 +127,6 @@ async def auth_google(request: Request, db: Session = Depends(get_db)):
     try:
         token = await oauth.google.authorize_access_token(request)
     except Exception as e:
-        # Logging error would be better here
         raise HTTPException(status_code=400, detail=f"OAuth error: {str(e)}")
 
     resp = await oauth.google.get('https://www.googleapis.com/oauth2/v2/userinfo', token=token)
@@ -124,8 +153,10 @@ async def auth_google(request: Request, db: Session = Depends(get_db)):
 
     jwt_token = create_access_token({"user_id": user.id, "role": user.role})
     
-    # Redirect to frontend with token
-    return RedirectResponse(url=f"{FRONTEND_URL}?token={jwt_token}")
+    # Redirect to frontend and set cookie
+    response = RedirectResponse(url=FRONTEND_URL)
+    set_auth_cookie(response, jwt_token)
+    return response
 
 @router.get("/login/line")
 async def login_line(request: Request):
@@ -134,14 +165,12 @@ async def login_line(request: Request):
     if "onrender.com" in str(redirect_uri):
         redirect_uri = str(redirect_uri).replace("http://", "https://")
 
-    print("LINE REDIRECT URI =", redirect_uri)
-
     return await oauth.line.authorize_redirect(
         request,
         redirect_uri
     )
 
-@router.get("/line/callback")
+@router.get("/line/callback", name="auth_line")
 async def auth_line(request: Request, db: Session = Depends(get_db)):
     try:
         token = await oauth.line.authorize_access_token(request)
@@ -170,7 +199,11 @@ async def auth_line(request: Request, db: Session = Depends(get_db)):
         db.refresh(user)
 
     jwt_token = create_access_token({"user_id": user.id, "role": user.role})
-    return RedirectResponse(url=f"{FRONTEND_URL}?token={jwt_token}")
+    
+    # Redirect to frontend and set cookie
+    response = RedirectResponse(url=FRONTEND_URL)
+    set_auth_cookie(response, jwt_token)
+    return response
 
 @router.get("/login/facebook")
 async def login_facebook(request: Request):
@@ -179,7 +212,7 @@ async def login_facebook(request: Request):
         redirect_uri = str(redirect_uri).replace("http://", "https://")
     return await oauth.facebook.authorize_redirect(request, redirect_uri)
 
-@router.get("/facebook/callback")
+@router.get("/facebook/callback", name="auth_facebook")
 async def auth_facebook(request: Request, db: Session = Depends(get_db)):
     try:
         token = await oauth.facebook.authorize_access_token(request)
@@ -207,4 +240,8 @@ async def auth_facebook(request: Request, db: Session = Depends(get_db)):
         db.refresh(user)
 
     jwt_token = create_access_token({"user_id": user.id, "role": user.role})
-    return RedirectResponse(url=f"{FRONTEND_URL}?token={jwt_token}")
+    
+    # Redirect to frontend and set cookie
+    response = RedirectResponse(url=FRONTEND_URL)
+    set_auth_cookie(response, jwt_token)
+    return response
