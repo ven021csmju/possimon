@@ -18,13 +18,21 @@ app = FastAPI(
 )
 
 # Middleware
+@app.middleware("http")
+async def add_proxy_headers(request: Request, call_next):
+    # Handle X-Forwarded-Proto to ensure HTTPS is recognized behind Render proxy
+    proto = request.headers.get("x-forwarded-proto")
+    if proto:
+        request.scope["scheme"] = proto
+    response = await call_next(request)
+    return response
+
 app.add_middleware(
     SessionMiddleware, 
     secret_key=settings.SECRET_KEY,
     https_only=True,
     same_site="lax"
 )
-app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 
 app.add_middleware(
     CORSMiddleware,
@@ -104,4 +112,3 @@ app.include_router(users.router, prefix="/api")
 app.include_router(payments.router, prefix="/api/payments")
 app.include_router(wines.router, prefix="/api/wines")
 app.include_router(websocket.router, prefix="/api")
-
