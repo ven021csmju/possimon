@@ -174,6 +174,7 @@ async def login_line_pos(request: Request):
 @router.get("/line/callback", name="auth_line")
 async def auth_line(request: Request, db: Session = Depends(get_db)):
     try:
+        # Retrieve state for frontend source
         state_str = request.query_params.get("state")
         source = "web"
         if state_str:
@@ -185,32 +186,14 @@ async def auth_line(request: Request, db: Session = Depends(get_db)):
 
         token = await oauth.line.authorize_access_token(request)
         
-        # Manual ID Token verification to bypass Authlib HS256 default
-        id_token = token.get("id_token")
-        if id_token:
-            from authlib.jose import jwt
-            # Fetch Line public keys to verify
-            # In a production app, cache these keys!
-            import httpx
-            async with httpx.AsyncClient() as client:
-                certs_resp = await client.get("https://api.line.me/oauth2/v2.1/certs")
-                certs = certs_resp.json()
-            
-            claims = jwt.decode(id_token, certs, algorithms=['RS256'], claims_options={
-                "iss": {"essential": True, "value": "https://access.line.me"},
-                "aud": {"essential": True, "value": settings.LINE_CHANNEL_ID},
-            })
-            claims.validate()
-            user_info = claims
-        else:
-            # Fallback to profile API if no ID token
-            resp = await oauth.line.get("https://api.line.me/v2/profile", token=token)
-            user_info = resp.json()
+        # Parse and verify ID Token using RS256 and registered JWKS
+        user_info = await oauth.line.parse_id_token(request, token)
+        
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"LINE OAuth error: {str(e)}")
 
-    user_id = user_info.get("sub") or user_info.get("userId")
-    name = user_info.get("name") or user_info.get("displayName")
+    user_id = user_info.get("sub")
+    name = user_info.get("name")
     email = user_info.get("email")
 
     if not email:
@@ -233,10 +216,7 @@ async def auth_line(request: Request, db: Session = Depends(get_db)):
 
     jwt_token = create_access_token({"user_id": user.id, "role": user.role})
     
-    if source == "pos":
-        redirect_url = settings.POS_FRONTEND_URL
-    else:
-        redirect_url = settings.WEB_FRONTEND_URL
+    redirect_url = settings.POS_FRONTEND_URL if source == "pos" else settings.WEB_FRONTEND_URL
         
     response = RedirectResponse(url=redirect_url)
     set_auth_cookie(response, jwt_token)
