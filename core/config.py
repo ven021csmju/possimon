@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     # CORS
     ALLOWED_ORIGINS: List[str] = [
         "https://the-bottel-club-premium.vercel.app",
+        "https://the-bottle-club-qm0jkf1vb-knathip-sasibut-310s-projects.vercel.app",
         "http://localhost:3000",
         "http://localhost:5173",
         "http://127.0.0.1:3000",
