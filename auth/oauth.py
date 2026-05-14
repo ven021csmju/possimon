@@ -17,11 +17,9 @@ oauth.register(
     name='line',
     client_id=settings.LINE_CHANNEL_ID,
     client_secret=settings.LINE_CHANNEL_SECRET,
-    access_token_url='https://api.line.me/oauth2/v2.1/token',
-    authorize_url='https://access.line.me/oauth2/v2.1/authorize',
-    api_base_url='https://api.line.me/',
+    server_metadata_url='https://access.line.me/.well-known/openid-configuration',
     client_kwargs={
-        'scope': 'profile',
+        'scope': 'openid profile email',
         'token_endpoint_auth_method': 'client_secret_post',
     }
 )

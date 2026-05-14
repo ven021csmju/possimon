@@ -78,7 +78,10 @@ FACEBOOK_APP_SECRET=
 |--------|------|-------------|
 | POST | `/login` | Username/password login |
 | POST | `/register` | Register new user |
-| GET | `/login/google` | Google OAuth |
+| GET | `/login/google/web` | Google OAuth (Web) |
+| GET | `/login/google/pos` | Google OAuth (POS) |
+| GET | `/login/line/web` | LINE OAuth (Web) |
+| GET | `/login/line/pos` | LINE OAuth (POS) |
 | GET | `/login/line` | LINE OAuth |
 | GET | `/login/facebook` | Facebook OAuth |
 
