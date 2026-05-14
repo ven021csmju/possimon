@@ -193,7 +193,7 @@ async def auth_line(request: Request, db: Session = Depends(get_db)):
                 certs_resp = await client.get("https://api.line.me/oauth2/v2.1/certs")
                 certs = certs_resp.json()
             
-            claims = jwt.decode(id_token, certs, claims_options={
+            claims = jwt.decode(id_token, certs, algorithms=['RS256'], claims_options={
                 "iss": {"essential": True, "value": "https://access.line.me"},
                 "aud": {"essential": True, "value": settings.LINE_CHANNEL_ID},
             })
