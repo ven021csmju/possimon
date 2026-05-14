@@ -28,7 +28,10 @@ def set_auth_cookie(response: Response, token: str):
 @router.post("/login")
 @router.post("/login/pos")
 def login_pos(request: schemas.LoginRequest, response: Response, db: Session = Depends(get_db)):
-    user = db.query(models.User).filter(models.User.username == request.username).first()
+    # Allow login by username OR email
+    user = db.query(models.User).filter(
+        (models.User.username == request.username) | (models.User.email == request.username)
+    ).first()
 
     if not user or not verify_password(request.password, user.password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
