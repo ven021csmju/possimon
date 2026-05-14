@@ -181,15 +181,31 @@ async def auth_line(request: Request, db: Session = Depends(get_db)):
                 pass
 
         token = await oauth.line.authorize_access_token(request)
+        
+        # Manual ID Token verification to bypass Authlib HS256 default
+        id_token = token.get("id_token")
+        if id_token:
+            from authlib.jose import jwt
+            # Fetch Line public keys to verify
+            # In a production app, cache these keys!
+            import httpx
+            async with httpx.AsyncClient() as client:
+                certs_resp = await client.get("https://api.line.me/oauth2/v2.1/certs")
+                certs = certs_resp.json()
+            
+            claims = jwt.decode(id_token, certs, claims_options={
+                "iss": {"essential": True, "value": "https://access.line.me"},
+                "aud": {"essential": True, "value": settings.LINE_CHANNEL_ID},
+            })
+            claims.validate()
+            user_info = claims
+        else:
+            # Fallback to profile API if no ID token
+            resp = await oauth.line.get("https://api.line.me/v2/profile", token=token)
+            user_info = resp.json()
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"LINE OAuth error: {str(e)}")
 
-    user_info = token.get("userinfo")
-    if not user_info:
-        # Fallback to profile API if userinfo not in token
-        resp = await oauth.line.get("https://api.line.me/v2/profile", token=token)
-        user_info = resp.json()
-    
     user_id = user_info.get("sub") or user_info.get("userId")
     name = user_info.get("name") or user_info.get("displayName")
     email = user_info.get("email")
