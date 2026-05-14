@@ -85,91 +85,30 @@ async def login_google_pos(request: Request):
     
     return await oauth.google.authorize_redirect(request, str(callback_url), state=state)
 
-@router.get("/google/callback", name="auth_google")
-async def auth_google(request: Request, db: Session = Depends(get_db)):
-    try:
-        # Authlib verifies the state internally for security (CSRF)
-        # We also manually extract our source from the state
-        state_str = request.query_params.get("state")
-        source = "web" # default
-        if state_str:
-            try:
-                # Authlib might append its own stuff to state or it might be just what we sent
-                # If we use Authlib's built-in state management, it might be tricky.
-                # Let's try to parse it.
-                decoded_state = json.loads(base64.urlsafe_b64decode(state_str).decode())
-                source = decoded_state.get("source", "web")
-            except:
-                pass
-
-        token = await oauth.google.authorize_access_token(request)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"OAuth error: {str(e)}")
-
-    resp = await oauth.google.get('https://www.googleapis.com/oauth2/v2/userinfo', token=token)
-    user_info = resp.json()
-    email = user_info.get("email")
-
-    if not email:
-        raise HTTPException(status_code=400, detail="Email not provided by Google")
-
-    user = db.query(models.User).filter(models.User.email == email).first()
+def get_or_create_oauth_user(db: Session, provider: str, provider_id: str, email: Optional[str], name: str):
+    user = db.query(models.User).filter(
+        models.User.provider == provider,
+        models.User.provider_id == provider_id
+    ).first()
+    
     if not user:
-        # Default role based on source or just 'customer'
-        role = "customer"
-        if source == "pos":
-            # Potentially check if this email is allowed to be an employee
-            # For now, keep it customer or handle specifically
-            pass
-
-        user = models.User(
-            first_name=user_info.get("given_name"),
-            last_name=user_info.get("family_name"),
-            email=email,
-            username=email,
-            password=hash_password(secrets.token_hex(32)),
-            role=role,
-            is_social=True
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-
-    jwt_token = create_access_token({"user_id": user.id, "role": user.role})
-    
-    # Determine redirect URL based on source
-    if source == "pos":
-        redirect_url = settings.POS_FRONTEND_URL
-    else:
-        redirect_url = settings.WEB_FRONTEND_URL
-        
-    response = RedirectResponse(url=redirect_url)
-    set_auth_cookie(response, jwt_token)
-    return response
-
-# --- Multi-Frontend LINE OAuth ---
-
-@router.get("/login/line/web")
-async def login_line_web(request: Request):
-    callback_url = request.url_for("auth_line")
-    if "onrender.com" in str(callback_url):
-        callback_url = str(callback_url).replace("http://", "https://")
-    
-    state_data = {"source": "web"}
-    state = base64.urlsafe_b64encode(json.dumps(state_data).encode()).decode()
-    
-    return await oauth.line.authorize_redirect(request, str(callback_url), state=state)
-
-@router.get("/login/line/pos")
-async def login_line_pos(request: Request):
-    callback_url = request.url_for("auth_line")
-    if "onrender.com" in str(callback_url):
-        callback_url = str(callback_url).replace("http://", "https://")
-    
-    state_data = {"source": "pos"}
-    state = base64.urlsafe_b64encode(json.dumps(state_data).encode()).decode()
-    
-    return await oauth.line.authorize_redirect(request, str(callback_url), state=state)
+        if email:
+            user = db.query(models.User).filter(models.User.email == email).first()
+            
+        if not user:
+            username = f"{provider}_{provider_id}"
+            user = models.User(
+                provider=provider,
+                provider_id=provider_id,
+                email=email,
+                username=username,
+                first_name=name,
+                role="customer"
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+    return user
 
 @router.get("/line/callback", name="auth_line")
 async def auth_line(request: Request, db: Session = Depends(get_db)):
@@ -189,38 +128,57 @@ async def auth_line(request: Request, db: Session = Depends(get_db)):
         # Parse and verify ID Token using RS256 and registered JWKS
         user_info = await oauth.line.parse_id_token(request, token)
         
+        user = get_or_create_oauth_user(
+            db, "line", user_info.get("sub"), user_info.get("email"), user_info.get("name", "Line User")
+        )
+
+        jwt_token = create_access_token({"user_id": user.id, "role": user.role})
+        
+        redirect_url = settings.POS_FRONTEND_URL if source == "pos" else settings.WEB_FRONTEND_URL
+            
+        response = RedirectResponse(url=redirect_url)
+        set_auth_cookie(response, jwt_token)
+        return response
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"LINE OAuth error: {str(e)}")
 
-    user_id = user_info.get("sub")
-    name = user_info.get("name")
-    email = user_info.get("email")
+@router.get("/google/callback", name="auth_google")
+async def auth_google(request: Request, db: Session = Depends(get_db)):
+    try:
+        # Authlib verifies the state internally for security (CSRF)
+        # We also manually extract our source from the state
+        state_str = request.query_params.get("state")
+        source = "web" # default
+        if state_str:
+            try:
+                # Authlib might append its own stuff to state or it might be just what we sent
+                # If we use Authlib's built-in state management, it might be tricky.
+                # Let's try to parse it.
+                decoded_state = json.loads(base64.urlsafe_b64decode(state_str).decode())
+                source = decoded_state.get("source", "web")
+            except:
+                pass
 
-    if not email:
-        email = f"{user_id}@line-user"
-
-    user = db.query(models.User).filter(models.User.email == email).first()
-    if not user:
-        user = models.User(
-            first_name=name,
-            last_name="",
-            email=email,
-            username=email,
-            password=hash_password(secrets.token_hex(32)),
-            role="customer",
-            is_social=True
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-
-    jwt_token = create_access_token({"user_id": user.id, "role": user.role})
-    
-    redirect_url = settings.POS_FRONTEND_URL if source == "pos" else settings.WEB_FRONTEND_URL
+        token = await oauth.google.authorize_access_token(request)
+        user_info = await oauth.google.get('https://www.googleapis.com/oauth2/v2/userinfo', token=token).json()
         
-    response = RedirectResponse(url=redirect_url)
-    set_auth_cookie(response, jwt_token)
-    return response
+        user = get_or_create_oauth_user(
+            db, "google", user_info.get("id"), user_info.get("email"), user_info.get("name")
+        )
+
+        jwt_token = create_access_token({"user_id": user.id, "role": user.role})
+        
+        # Determine redirect URL based on source
+        if source == "pos":
+            redirect_url = settings.POS_FRONTEND_URL
+        else:
+            redirect_url = settings.WEB_FRONTEND_URL
+            
+        response = RedirectResponse(url=redirect_url)
+        set_auth_cookie(response, jwt_token)
+        return response
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"OAuth error: {str(e)}")
 
 # --- Generic OAuth Login (Old, kept for compatibility if needed) ---
 

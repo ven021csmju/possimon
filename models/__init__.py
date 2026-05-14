@@ -29,12 +29,13 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     first_name = Column(String)
     last_name = Column(String)
-    email = Column(String, unique=True, index=True)
-    phone = Column(String)
-    username = Column(String, unique=True, index=True)
+    email = Column(String, unique=True, index=True, nullable=True)
+    phone = Column(String, nullable=True)
+    username = Column(String, unique=True, index=True, nullable=True)
     password = Column(String, nullable=True)
     role = Column(String, default="customer")
-    is_social = Column(Boolean, default=False)
+    provider = Column(String, default="local") # local, google, line
+    provider_id = Column(String, nullable=True, index=True) # sub หรือ userId จาก OAuth
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
 class Address(Base):
