@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     
     # CORS
     ALLOWED_ORIGINS: List[str] = [
+        "https://front-posimon-a68ohduyv-ven-307s-projects.vercel.app",
         "https://the-bottle-club-ai.vercel.app",
         "https://the-bottle-club-qm0jkf1vb-knathip-sasibut-310s-projects.vercel.app",
         "http://localhost:3000",
@@ -27,8 +28,8 @@ class Settings(BaseSettings):
     
     # External APIs
     API_KEY: str = "" # Map directly to API_KEY in .env
-    FRONTEND_URL: str = "https://the-bottle-club-ai.vercel.app/auth/success"
-    WEB_FRONTEND_URL: str = "https://the-bottle-club-ai.vercel.app/auth/success"
+    FRONTEND_URL: str = "https://front-posimon-a68ohduyv-ven-307s-projects.vercel.app/auth/success"
+    WEB_FRONTEND_URL: str = "https://front-posimon-a68ohduyv-ven-307s-projects.vercel.app/auth/success"
     POS_FRONTEND_URL: str = "http://localhost:3000/auth/success"
     
     # Social Login
