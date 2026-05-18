@@ -2,12 +2,13 @@ import os
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from database import Base, SessionLocal, engine
 from seed import seed_data
 from core.config import settings
 from core.logging_config import setup_logging
-from routers import auth, products, orders, users, payments, wines, websocket, employees, customers
+from routers import auth, products, orders, users, payments, wines, websocket, employees, customers, product_images
 
 # Initialize logging
 logger = setup_logging()
@@ -16,6 +17,12 @@ app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION
 )
+
+# Ensure upload directory exists
+os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+
+# Static Files
+app.mount(settings.STATIC_URL_PREFIX, StaticFiles(directory=settings.UPLOAD_DIR), name="static")
 
 # Middleware
 @app.middleware("http")
@@ -107,6 +114,7 @@ app.include_router(auth.router, prefix="/api/auth")
 app.include_router(employees.router, prefix="/api")
 app.include_router(customers.router, prefix="/api")
 app.include_router(products.router, prefix="/api")
+app.include_router(product_images.router, prefix="/api")
 app.include_router(orders.router, prefix="/api")
 app.include_router(users.router, prefix="/api")
 app.include_router(payments.router, prefix="/api/payments")

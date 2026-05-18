@@ -6,7 +6,7 @@ import logging
 logger = logging.getLogger("possimon")
 
 def get_products(db: Session):
-    return db.query(models.Product).all()
+    return db.query(models.Product).options(joinedload(models.Product.images)).all()
 
 def create_product(db: Session, product: schemas.ProductCreate):
     db_product = models.Product(**product.dict())
@@ -134,7 +134,8 @@ def get_wines(db: Session, skip: int = 0, limit: int = 100):
         joinedload(models.Wine.winery),
         joinedload(models.Wine.region),
         joinedload(models.Wine.country),
-        joinedload(models.Wine.grapes)
+        joinedload(models.Wine.grapes),
+        joinedload(models.Wine.images)
     ).offset(skip).limit(limit).all()
 
 def create_rating(db: Session, rating: schemas.RatingCreate):

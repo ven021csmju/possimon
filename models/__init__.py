@@ -66,10 +66,22 @@ class Product(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
+    images = relationship("ProductImage", back_populates="product", cascade="all, delete-orphan")
+
     __mapper_args__ = {
         "polymorphic_identity": "product",
         "polymorphic_on": type,
     }
+
+class ProductImage(Base):
+    __tablename__ = "product_images"
+    id = Column(Integer, primary_key=True, index=True)
+    product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"))
+    image_url = Column(String)
+    file_path = Column(String) # For physical deletion
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    
+    product = relationship("Product", back_populates="images")
 
 class Order(Base):
     __tablename__ = "orders"

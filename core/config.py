@@ -49,6 +49,11 @@ class Settings(BaseSettings):
     # Environment
     ENV: str = "dev" # dev, production
 
+    # File Storage
+    UPLOAD_DIR: str = "uploads"
+    PRODUCTS_IMAGE_DIR: str = "products"
+    STATIC_URL_PREFIX: str = "/static"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

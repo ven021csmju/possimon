@@ -51,6 +51,15 @@ class ProductUpdate(BaseModel):
 class StockRefill(BaseModel):
     quantity: int = Field(..., gt=0, description="Amount to add to current stock")
 
+class ProductImageOut(BaseModel):
+    id: int
+    product_id: int
+    image_url: str
+    created_at: datetime.datetime
+
+    class Config:
+        from_attributes = True
+
 class ProductOut(BaseModel):
     id: int
     name: str
@@ -60,6 +69,7 @@ class ProductOut(BaseModel):
     price: float
     stock: int
     type: str
+    images: List[ProductImageOut] = []
 
     class Config:
         from_attributes = True
