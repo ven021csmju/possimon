@@ -49,7 +49,7 @@ app.add_middleware(
     SessionMiddleware, 
     secret_key=settings.SECRET_KEY,
     https_only=True,
-    same_site="lax"
+    same_site="none" # Changed from "lax" to "none" for cross-site redirects
 )
 
 app.add_middleware(

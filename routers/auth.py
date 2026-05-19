@@ -160,7 +160,8 @@ async def auth_google(request: Request, db: Session = Depends(get_db)):
                 pass
 
         token = await oauth.google.authorize_access_token(request)
-        user_info = await oauth.google.get('https://www.googleapis.com/oauth2/v2/userinfo', token=token).json()
+        resp = await oauth.google.get('https://www.googleapis.com/oauth2/v2/userinfo', token=token)
+        user_info = resp.json()
         
         user = get_or_create_oauth_user(
             db, "google", user_info.get("id"), user_info.get("email"), user_info.get("name")
