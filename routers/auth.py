@@ -132,9 +132,14 @@ async def auth_line(request: Request, db: Session = Depends(get_db)):
             db, "line", user_info.get("sub"), user_info.get("email"), user_info.get("name", "Line User")
         )
 
+        # Role Validation for POS
+        if source == "pos" and user.role not in settings.POS_ALLOWED_ROLES:
+            return RedirectResponse(url=f"{settings.POS_FRONTEND_URL}?error=unauthorized_role")
+
         jwt_token = create_access_token({"user_id": user.id, "role": user.role})
         
-        redirect_url = settings.POS_FRONTEND_URL if source == "pos" else settings.WEB_FRONTEND_URL
+        base_url = settings.POS_FRONTEND_URL if source == "pos" else settings.WEB_FRONTEND_URL
+        redirect_url = f"{base_url}?token={jwt_token}"
             
         response = RedirectResponse(url=redirect_url)
         set_auth_cookie(response, jwt_token)
@@ -152,8 +157,6 @@ async def auth_google(request: Request, db: Session = Depends(get_db)):
         if state_str:
             try:
                 # Authlib might append its own stuff to state or it might be just what we sent
-                # If we use Authlib's built-in state management, it might be tricky.
-                # Let's try to parse it.
                 decoded_state = json.loads(base64.urlsafe_b64decode(state_str).decode())
                 source = decoded_state.get("source", "web")
             except:
@@ -167,13 +170,15 @@ async def auth_google(request: Request, db: Session = Depends(get_db)):
             db, "google", user_info.get("id"), user_info.get("email"), user_info.get("name")
         )
 
+        # Role Validation for POS
+        if source == "pos" and user.role not in settings.POS_ALLOWED_ROLES:
+            return RedirectResponse(url=f"{settings.POS_FRONTEND_URL}?error=unauthorized_role")
+
         jwt_token = create_access_token({"user_id": user.id, "role": user.role})
         
-        # Determine redirect URL based on source
-        if source == "pos":
-            redirect_url = settings.POS_FRONTEND_URL
-        else:
-            redirect_url = settings.WEB_FRONTEND_URL
+        # Determine redirect URL based on source and append token
+        base_url = settings.POS_FRONTEND_URL if source == "pos" else settings.WEB_FRONTEND_URL
+        redirect_url = f"{base_url}?token={jwt_token}"
             
         response = RedirectResponse(url=redirect_url)
         set_auth_cookie(response, jwt_token)
