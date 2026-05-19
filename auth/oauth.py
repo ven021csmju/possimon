@@ -21,8 +21,7 @@ oauth.register(
     jwks_uri='https://api.line.me/oauth2/v2.1/certs',
     client_kwargs={
         'scope': 'openid profile email',
-        'token_endpoint_auth_method': 'client_secret_post',
-        'id_token_signed_response_alg': 'RS256',
+        'token_endpoint_auth_method': 'client_secret_post'
     }
 )
 
