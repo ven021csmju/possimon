@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     POS_FRONTEND_URL: str = "https://administratunegocio.club/auth/success"
     
     # Auth Roles
-    POS_ALLOWED_ROLES: List[str] = ["admin", "manager", "cashier"]
+    POS_ALLOWED_ROLES: List[str] = ["admin", "manager", "cashier", "customer"]
     
     # Social Login
     GOOGLE_CLIENT_ID: Optional[str] = None
