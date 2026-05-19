@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     
     # CORS
     ALLOWED_ORIGINS: List[str] = [
+        "https://front-posimon.vercel.app",
         "https://front-posimon-a68ohduyv-ven-307s-projects.vercel.app",
         "https://the-bottle-club-ai.vercel.app",
         "https://the-bottle-club-qm0jkf1vb-knathip-sasibut-310s-projects.vercel.app",
