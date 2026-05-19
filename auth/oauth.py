@@ -20,6 +20,7 @@ oauth.register(
     client_kwargs={
         'scope': 'openid profile email',
         'token_endpoint_auth_method': 'client_secret_post',
+        'id_token_signed_response_alg': 'RS256',
     }
 )
 
