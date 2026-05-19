@@ -12,16 +12,14 @@ oauth.register(
         'scope': 'openid email profile'
     }
 )
-
 oauth.register(
     name='line',
     client_id=settings.LINE_CHANNEL_ID,
     client_secret=settings.LINE_CHANNEL_SECRET,
     server_metadata_url='https://access.line.me/.well-known/openid-configuration',
-    jwks_uri='https://api.line.me/oauth2/v2.1/certs',
     client_kwargs={
         'scope': 'openid profile email',
-        'token_endpoint_auth_method': 'client_secret_post'
+        'token_endpoint_auth_method': 'client_secret_post',
     }
 )
 
