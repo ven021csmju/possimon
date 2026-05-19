@@ -28,9 +28,9 @@ class Settings(BaseSettings):
     
     # External APIs
     API_KEY: str = "" # Map directly to API_KEY in .env
-    FRONTEND_URL: str = "https://front-posimon-a68ohduyv-ven-307s-projects.vercel.app/auth/success"
-    WEB_FRONTEND_URL: str = "https://front-posimon-a68ohduyv-ven-307s-projects.vercel.app/auth/success"
-    POS_FRONTEND_URL: str = "http://localhost:3000/auth/success"
+    FRONTEND_URL: str = "https://front-posimon.vercel.app/auth/success"
+    WEB_FRONTEND_URL: str = "https://front-posimon.vercel.app/auth/success"
+    POS_FRONTEND_URL: str = "https://front-posimon.vercel.app/auth/success"
     
     # Social Login
     GOOGLE_CLIENT_ID: Optional[str] = None
