@@ -25,15 +25,26 @@ os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
 app.mount(settings.STATIC_URL_PREFIX, StaticFiles(directory=settings.UPLOAD_DIR), name="static")
 
 # Middleware
-@app.middleware("http")
-async def add_proxy_headers(request: Request, call_next):
-    # Handle X-Forwarded-Proto to ensure HTTPS is recognized behind Render proxy
-    proto = request.headers.get("x-forwarded-proto")
-    if proto:
-        request.scope["scheme"] = proto
-    response = await call_next(request)
-    return response
+class ProxyHeadersMiddleware:
+    def __init__(self, app):
+        self.app = app
 
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http":
+            headers = dict(scope.get("headers", []))
+            # x-forwarded-proto is usually in bytes in the scope headers
+            proto = None
+            for k, v in scope.get("headers", []):
+                if k.lower() == b"x-forwarded-proto":
+                    proto = v.decode("utf-8")
+                    break
+            
+            if proto:
+                scope["scheme"] = proto
+        
+        await self.app(scope, receive, send)
+
+# Add middlewares in order (Last added = Outermost)
 app.add_middleware(
     SessionMiddleware, 
     secret_key=settings.SECRET_KEY,
@@ -46,8 +57,10 @@ app.add_middleware(
     allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"], # Allow all headers for flexibility
+    allow_headers=["*"],
 )
+
+app.add_middleware(ProxyHeadersMiddleware)
 
 # Startup event
 @app.on_event("startup")

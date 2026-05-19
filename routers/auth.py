@@ -63,28 +63,27 @@ def get_me(user: models.User = Depends(get_current_user)):
 
 # --- Multi-Frontend Google OAuth ---
 
-@router.get("/login/google/web")
-async def login_google_web(request: Request):
+@router.get("/google") # Alias for /api/auth/google
+@router.get("/login/google")
+async def login_google(request: Request, source: str = "web"):
     callback_url = request.url_for("auth_google")
-    if "onrender.com" in str(callback_url):
+    # Force HTTPS for callback on Render
+    if "onrender.com" in str(callback_url) or settings.ENV == "production":
         callback_url = str(callback_url).replace("http://", "https://")
     
-    # Use state to pass the source
-    state_data = {"source": "web"}
+    # Pass source in state
+    state_data = {"source": source}
     state = base64.urlsafe_b64encode(json.dumps(state_data).encode()).decode()
     
     return await oauth.google.authorize_redirect(request, str(callback_url), state=state)
 
+@router.get("/login/google/web")
+async def login_google_web(request: Request):
+    return await login_google(request, source="web")
+
 @router.get("/login/google/pos")
 async def login_google_pos(request: Request):
-    callback_url = request.url_for("auth_google")
-    if "onrender.com" in str(callback_url):
-        callback_url = str(callback_url).replace("http://", "https://")
-    
-    state_data = {"source": "pos"}
-    state = base64.urlsafe_b64encode(json.dumps(state_data).encode()).decode()
-    
-    return await oauth.google.authorize_redirect(request, str(callback_url), state=state)
+    return await login_google(request, source="pos")
 
 def get_or_create_oauth_user(db: Session, provider: str, provider_id: str, email: Optional[str], name: str):
     user = db.query(models.User).filter(
@@ -182,13 +181,6 @@ async def auth_google(request: Request, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail=f"OAuth error: {str(e)}")
 
 # --- Generic OAuth Login (Old, kept for compatibility if needed) ---
-
-@router.get("/login/google")
-async def login_google(request: Request):
-    callback_url = request.url_for("auth_google")
-    if "onrender.com" in str(callback_url):
-        callback_url = str(callback_url).replace("http://", "https://")
-    return await oauth.google.authorize_redirect(request, str(callback_url))
 
 @router.get("/login/line")
 async def login_line(request: Request):
