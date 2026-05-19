@@ -65,14 +65,25 @@ def get_me(user: models.User = Depends(get_current_user)):
 
 @router.get("/google") # Alias for /api/auth/google
 @router.get("/login/google")
-async def login_google(request: Request, source: str = "web"):
+async def login_google(request: Request, source: str = "web", redirect_url: Optional[str] = None):
     callback_url = request.url_for("auth_google")
     # Force HTTPS for callback on Render
     if "onrender.com" in str(callback_url) or settings.ENV == "production":
         callback_url = str(callback_url).replace("http://", "https://")
     
-    # Pass source in state
-    state_data = {"source": source}
+    # Auto-detect redirect_url if not provided
+    if not redirect_url:
+        referer = request.headers.get("referer")
+        if referer:
+            # Use the referer domain but append /auth/success
+            from urllib.parse import urlparse
+            parsed = urlparse(referer)
+            redirect_url = f"{parsed.scheme}://{parsed.netloc}/auth/success"
+        else:
+            redirect_url = settings.POS_FRONTEND_URL if source == "pos" else settings.WEB_FRONTEND_URL
+
+    # Pass source and dynamic redirect_url in state
+    state_data = {"source": source, "redirect_url": redirect_url}
     state = base64.urlsafe_b64encode(json.dumps(state_data).encode()).decode()
     
     return await oauth.google.authorize_redirect(request, str(callback_url), state=state)
@@ -113,15 +124,20 @@ def get_or_create_oauth_user(db: Session, provider: str, provider_id: str, email
 @router.get("/line/callback", name="auth_line")
 async def auth_line(request: Request, db: Session = Depends(get_db)):
     try:
-        # Retrieve state for frontend source
+        # Retrieve state for frontend source and dynamic redirect
         state_str = request.query_params.get("state")
         source = "web"
+        redirect_base = None
         if state_str:
             try:
                 decoded_state = json.loads(base64.urlsafe_b64decode(state_str).decode())
                 source = decoded_state.get("source", "web")
+                redirect_base = decoded_state.get("redirect_url")
             except:
                 pass
+
+        if not redirect_base:
+            redirect_base = settings.POS_FRONTEND_URL if source == "pos" else settings.WEB_FRONTEND_URL
 
         token = await oauth.line.authorize_access_token(request)
         
@@ -134,12 +150,11 @@ async def auth_line(request: Request, db: Session = Depends(get_db)):
 
         # Role Validation for POS
         if source == "pos" and user.role not in settings.POS_ALLOWED_ROLES:
-            return RedirectResponse(url=f"{settings.POS_FRONTEND_URL}?error=unauthorized_role")
+            return RedirectResponse(url=f"{redirect_base}?error=unauthorized_role")
 
         jwt_token = create_access_token({"user_id": user.id, "role": user.role})
         
-        base_url = settings.POS_FRONTEND_URL if source == "pos" else settings.WEB_FRONTEND_URL
-        redirect_url = f"{base_url}?token={jwt_token}"
+        redirect_url = f"{redirect_base}?token={jwt_token}"
             
         response = RedirectResponse(url=redirect_url)
         set_auth_cookie(response, jwt_token)
@@ -151,16 +166,19 @@ async def auth_line(request: Request, db: Session = Depends(get_db)):
 async def auth_google(request: Request, db: Session = Depends(get_db)):
     try:
         # Authlib verifies the state internally for security (CSRF)
-        # We also manually extract our source from the state
         state_str = request.query_params.get("state")
-        source = "web" # default
+        source = "web"
+        redirect_base = None
         if state_str:
             try:
-                # Authlib might append its own stuff to state or it might be just what we sent
                 decoded_state = json.loads(base64.urlsafe_b64decode(state_str).decode())
                 source = decoded_state.get("source", "web")
+                redirect_base = decoded_state.get("redirect_url")
             except:
                 pass
+
+        if not redirect_base:
+            redirect_base = settings.POS_FRONTEND_URL if source == "pos" else settings.WEB_FRONTEND_URL
 
         token = await oauth.google.authorize_access_token(request)
         resp = await oauth.google.get('https://www.googleapis.com/oauth2/v2/userinfo', token=token)
@@ -172,13 +190,12 @@ async def auth_google(request: Request, db: Session = Depends(get_db)):
 
         # Role Validation for POS
         if source == "pos" and user.role not in settings.POS_ALLOWED_ROLES:
-            return RedirectResponse(url=f"{settings.POS_FRONTEND_URL}?error=unauthorized_role")
+            return RedirectResponse(url=f"{redirect_base}?error=unauthorized_role")
 
         jwt_token = create_access_token({"user_id": user.id, "role": user.role})
         
-        # Determine redirect URL based on source and append token
-        base_url = settings.POS_FRONTEND_URL if source == "pos" else settings.WEB_FRONTEND_URL
-        redirect_url = f"{base_url}?token={jwt_token}"
+        # Determine redirect URL based on state and append token
+        redirect_url = f"{redirect_base}?token={jwt_token}"
             
         response = RedirectResponse(url=redirect_url)
         set_auth_cookie(response, jwt_token)
