@@ -203,14 +203,38 @@ async def auth_google(request: Request, db: Session = Depends(get_db)):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"OAuth error: {str(e)}")
 
-# --- Generic OAuth Login (Old, kept for compatibility if needed) ---
+# --- Generic OAuth Login ---
 
+@router.get("/line")
 @router.get("/login/line")
-async def login_line(request: Request):
+async def login_line(request: Request, source: str = "web", redirect_url: Optional[str] = None):
     callback_url = request.url_for("auth_line")
-    if "onrender.com" in str(callback_url):
+    if "onrender.com" in str(callback_url) or settings.ENV == "production":
         callback_url = str(callback_url).replace("http://", "https://")
-    return await oauth.line.authorize_redirect(request, str(callback_url))
+    
+    # Auto-detect redirect_url if not provided
+    if not redirect_url:
+        referer = request.headers.get("referer")
+        if referer:
+            from urllib.parse import urlparse
+            parsed = urlparse(referer)
+            redirect_url = f"{parsed.scheme}://{parsed.netloc}/auth/success"
+        else:
+            redirect_url = settings.POS_FRONTEND_URL if source == "pos" else settings.WEB_FRONTEND_URL
+
+    # Pass source and dynamic redirect_url in state
+    state_data = {"source": source, "redirect_url": redirect_url}
+    state = base64.urlsafe_b64encode(json.dumps(state_data).encode()).decode()
+    
+    return await oauth.line.authorize_redirect(request, str(callback_url), state=state)
+
+@router.get("/login/line/web")
+async def login_line_web(request: Request):
+    return await login_line(request, source="web")
+
+@router.get("/login/line/pos")
+async def login_line_pos(request: Request):
+    return await login_line(request, source="pos")
 
 @router.get("/login/facebook")
 async def login_facebook(request: Request):
