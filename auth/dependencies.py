@@ -4,6 +4,7 @@ from database import SessionLocal
 import models
 from auth.jwt import decode_token
 from core.config import settings
+from core.logging_config import logger
 from exceptions.auth_exception import AuthException
 
 def get_db():
