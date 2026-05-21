@@ -1,7 +1,9 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, status
 from typing import List
 from jose import jwt, JWTError
-from core.security import SECRET_KEY, ALGORITHM
+from core.config import settings
+SECRET_KEY = settings.SECRET_KEY
+ALGORITHM = settings.ALGORITHM
 
 router = APIRouter()
 
