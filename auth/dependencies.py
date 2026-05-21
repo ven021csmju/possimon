@@ -22,8 +22,10 @@ def get_current_user(
     token = None
     auth_header = request.headers.get("Authorization")
     if auth_header and auth_header.startswith("Bearer "):
-        token = auth_header.split(" ")[1]
-        token_source = "header"
+        parts = auth_header.split()
+        if len(parts) > 1:
+            token = parts[1]
+            token_source = "header"
     
     # 2. Fallback to Cookie if header is missing
     if not token:

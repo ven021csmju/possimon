@@ -28,7 +28,13 @@ def create_refresh_token(data: dict):
 
 def decode_token(token: str, expected_type: Optional[str] = None):
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        # Add 60 seconds of leeway for iat, nbf, and exp to handle clock drift
+        payload = jwt.decode(
+            token, 
+            settings.SECRET_KEY, 
+            algorithms=[settings.ALGORITHM],
+            options={"leeway": 60}
+        )
         
         if expected_type and payload.get("type") != expected_type:
             logger.warning(f"Token type mismatch: expected {expected_type}, got {payload.get('type')}")
