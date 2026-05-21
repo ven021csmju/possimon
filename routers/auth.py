@@ -59,7 +59,15 @@ def login_pos(request: schemas.LoginRequest, response: Response, db: Session = D
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
-        "message": "Login success"
+        "token_type": "bearer",
+        "message": "Login success",
+        "user": {
+            "id": user.id,
+            "username": user.username,
+            "role": user.role,
+            "first_name": user.first_name,
+            "last_name": user.last_name
+        }
     }
 
 @router.post("/refresh")
