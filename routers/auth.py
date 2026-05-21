@@ -50,7 +50,7 @@ def login_pos(request: schemas.LoginRequest, response: Response, db: Session = D
     if not user or not verify_password(request.password, user.password):
         raise AuthException(message="Invalid credentials", code="INVALID_CREDENTIALS")
 
-    token_data = {"sub": user.id, "role": user.role}
+    token_data = {"sub": str(user.id), "role": user.role}
     access_token = create_access_token(token_data)
     refresh_token = create_refresh_token(token_data)
     
@@ -86,7 +86,7 @@ def refresh_token(request: Request, response: Response, db: Session = Depends(ge
     if not user:
         raise AuthException(message="User not found", code="USER_NOT_FOUND")
 
-    token_data = {"sub": user.id, "role": user.role}
+    token_data = {"sub": str(user.id), "role": user.role}
     new_access_token = create_access_token(token_data)
     new_refresh_token = create_refresh_token(token_data)
 
@@ -211,7 +211,7 @@ async def auth_line(request: Request, db: Session = Depends(get_db)):
         if source == "pos" and user.role not in settings.POS_ALLOWED_ROLES:
             return RedirectResponse(url=f"{redirect_base}?error=unauthorized_role")
 
-        token_data = {"sub": user.id, "role": user.role}
+        token_data = {"sub": str(user.id), "role": user.role}
         jwt_token = create_access_token(token_data)
         refresh_token = create_refresh_token(token_data)
         
@@ -253,7 +253,7 @@ async def auth_google(request: Request, db: Session = Depends(get_db)):
         if source == "pos" and user.role not in settings.POS_ALLOWED_ROLES:
             return RedirectResponse(url=f"{redirect_base}?error=unauthorized_role")
 
-        token_data = {"sub": user.id, "role": user.role}
+        token_data = {"sub": str(user.id), "role": user.role}
         jwt_token = create_access_token(token_data)
         refresh_token = create_refresh_token(token_data)
         
@@ -333,7 +333,7 @@ async def auth_facebook(request: Request, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(user)
 
-    token_data = {"sub": user.id, "role": user.role}
+    token_data = {"sub": str(user.id), "role": user.role}
     jwt_token = create_access_token(token_data)
     refresh_token = create_refresh_token(token_data)
     
