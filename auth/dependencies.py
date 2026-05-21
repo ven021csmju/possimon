@@ -17,13 +17,17 @@ def get_current_user(
     request: Request,
     db: Session = Depends(get_db)
 ):
-    token = request.cookies.get(settings.COOKIE_NAME)
+    # 1. Prioritize Authorization header (Bearer token)
+    token = None
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header.split(" ")[1]
+        token_source = "header"
     
-    # Fallback to Authorization header if cookie is missing
+    # 2. Fallback to Cookie if header is missing
     if not token:
-        auth_header = request.headers.get("Authorization")
-        if auth_header and auth_header.startswith("Bearer "):
-            token = auth_header.split(" ")[1]
+        token = request.cookies.get(settings.COOKIE_NAME)
+        token_source = "cookie"
 
     if not token:
         raise AuthException(
@@ -33,6 +37,7 @@ def get_current_user(
     
     payload = decode_token(token, expected_type="access")
     if not payload:
+        logger.warning(f"Failed to decode access token from {token_source}")
         raise AuthException(
             message="Invalid or expired access token",
             code="INVALID_TOKEN"

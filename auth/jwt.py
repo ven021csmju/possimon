@@ -4,9 +4,6 @@ from typing import Optional
 from core.config import settings
 from core.logging_config import logger
 
-SECRET_KEY = settings.SECRET_KEY
-ALGORITHM = settings.ALGORITHM
-
 def create_access_token(data: dict):
     to_encode = data.copy()
     now = datetime.now(timezone.utc)
@@ -16,7 +13,7 @@ def create_access_token(data: dict):
         "iat": now,
         "type": "access"
     })
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 def create_refresh_token(data: dict):
     to_encode = data.copy()
@@ -27,11 +24,11 @@ def create_refresh_token(data: dict):
         "iat": now,
         "type": "refresh"
     })
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 def decode_token(token: str, expected_type: Optional[str] = None):
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         
         if expected_type and payload.get("type") != expected_type:
             logger.warning(f"Token type mismatch: expected {expected_type}, got {payload.get('type')}")
@@ -39,5 +36,6 @@ def decode_token(token: str, expected_type: Optional[str] = None):
             
         return payload
     except JWTError as e:
-        logger.debug(f"JWT Decode error: {str(e)}")
+        # Log as warning so it shows up in production (Level INFO and above)
+        logger.warning(f"JWT Decode error: {str(e)} | Token prefix: {token[:15]}...")
         return None
