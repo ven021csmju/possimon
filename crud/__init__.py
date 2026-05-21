@@ -1,9 +1,7 @@
 from sqlalchemy.orm import Session, joinedload
-from fastapi import HTTPException
+from exceptions.not_found_exception import NotFoundException
 import models, schemas
-import logging
-
-logger = logging.getLogger("possimon")
+from core.logging_config import logger
 
 def get_products(db: Session):
     return db.query(models.Product).options(joinedload(models.Product.images)).all()
@@ -20,7 +18,7 @@ def update_product(db: Session, product_id: int, product_update: schemas.Product
     db_product = db.query(models.Product).filter(models.Product.id == product_id).first()
     if not db_product:
         logger.warning(f"Update failed: Product {product_id} not found")
-        raise HTTPException(status_code=404, detail="Product not found")
+        raise NotFoundException(message="Product not found", code="PRODUCT_NOT_FOUND")
     
     update_data = product_update.dict(exclude_unset=True)
     for key, value in update_data.items():
@@ -35,7 +33,7 @@ def refill_stock(db: Session, product_id: int, refill: schemas.StockRefill):
     db_product = db.query(models.Product).filter(models.Product.id == product_id).first()
     if not db_product:
         logger.warning(f"Refill failed: Product {product_id} not found")
-        raise HTTPException(status_code=404, detail="Product not found")
+        raise NotFoundException(message="Product not found", code="PRODUCT_NOT_FOUND")
     
     old_stock = db_product.stock
     db_product.stock += refill.quantity
@@ -114,7 +112,7 @@ def update_wine(db: Session, wine_id: int, wine_update: schemas.WineUpdate):
     db_wine = db.query(models.Wine).filter(models.Wine.id == wine_id).first()
     if not db_wine:
         logger.warning(f"Update failed: Wine {wine_id} not found")
-        raise HTTPException(status_code=404, detail="Wine not found")
+        raise NotFoundException(message="Wine not found", code="WINE_NOT_FOUND")
     
     update_data = wine_update.dict(exclude_unset=True, exclude={"grape_ids"})
     for key, value in update_data.items():
@@ -141,7 +139,7 @@ def get_wines(db: Session, skip: int = 0, limit: int = 100):
 def create_rating(db: Session, rating: schemas.RatingCreate):
     wine = db.query(models.Wine).filter(models.Wine.id == rating.wine_id).first()
     if not wine:
-        raise HTTPException(status_code=404, detail="Wine not found")
+        raise NotFoundException(message="Wine not found", code="WINE_NOT_FOUND")
 
     db_rating = models.Rating(**rating.dict())
     db.add(db_rating)

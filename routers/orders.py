@@ -1,10 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 from typing import List
 import models
 import schemas
 from auth.dependencies import get_db, get_current_user, RoleChecker
 from services import order_service
+from exceptions.not_found_exception import NotFoundException
+from exceptions.auth_exception import AuthException
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
@@ -31,9 +33,13 @@ def get_order(
 ):
     db_order = db.query(models.Order).filter(models.Order.id == order_id).first()
     if not db_order:
-        raise HTTPException(status_code=404, detail="Order not found")
+        raise NotFoundException(message="Order not found", code="ORDER_NOT_FOUND")
     
     if current_user.role not in ["admin", "manager"] and db_order.user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="You do not have permission to access this resource")
+        raise AuthException(
+            message="You do not have permission to access this resource",
+            code="PERMISSION_DENIED",
+            status_code=status.HTTP_403_FORBIDDEN
+        )
         
     return db_order

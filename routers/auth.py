@@ -7,23 +7,36 @@ import secrets
 import json
 import base64
 from auth.dependencies import get_db, get_current_user
-from core.security import verify_password, create_access_token, hash_password
+from core.security import verify_password, hash_password
 from core.config import settings
+from auth.jwt import create_access_token, create_refresh_token, decode_token
 from auth.oauth import oauth
 import models
 import schemas
+from exceptions.auth_exception import AuthException
 
 router = APIRouter(tags=["auth"])
 
-def set_auth_cookie(response: Response, token: str):
+def set_auth_cookies(response: Response, access_token: str, refresh_token: str):
+    # Access Token Cookie
     response.set_cookie(
         key=settings.COOKIE_NAME,
-        value=token,
+        value=access_token,
         httponly=True,
         secure=settings.COOKIE_SECURE,
         samesite=settings.COOKIE_SAMESITE,
         domain=settings.COOKIE_DOMAIN,
-        max_age=settings.ACCESS_TOKEN_EXPIRE_HOURS * 3600
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+    )
+    # Refresh Token Cookie
+    response.set_cookie(
+        key=settings.REFRESH_COOKIE_NAME,
+        value=refresh_token,
+        httponly=True,
+        secure=settings.COOKIE_SECURE,
+        samesite=settings.COOKIE_SAMESITE,
+        domain=settings.COOKIE_DOMAIN,
+        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 3600
     )
 
 @router.post("/login")
@@ -35,21 +48,59 @@ def login_pos(request: schemas.LoginRequest, response: Response, db: Session = D
     ).first()
 
     if not user or not verify_password(request.password, user.password):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+        raise AuthException(message="Invalid credentials", code="INVALID_CREDENTIALS")
 
-    token = create_access_token({
-        "user_id": user.id,
-        "role": user.role
-    })
+    token_data = {"sub": user.id, "role": user.role}
+    access_token = create_access_token(token_data)
+    refresh_token = create_refresh_token(token_data)
     
-    set_auth_cookie(response, token)
+    set_auth_cookies(response, access_token, refresh_token)
 
-    return {"access_token": token, "message": "Login success"}
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "message": "Login success"
+    }
+
+@router.post("/refresh")
+def refresh_token(request: Request, response: Response, db: Session = Depends(get_db)):
+    refresh_token = request.cookies.get(settings.REFRESH_COOKIE_NAME)
+    
+    if not refresh_token:
+        raise AuthException(message="Refresh token missing", code="REFRESH_TOKEN_MISSING")
+
+    payload = decode_token(refresh_token, expected_type="refresh")
+    if not payload:
+        raise AuthException(message="Invalid or expired refresh token", code="INVALID_REFRESH_TOKEN")
+
+    user_id = payload.get("sub")
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise AuthException(message="User not found", code="USER_NOT_FOUND")
+
+    token_data = {"sub": user.id, "role": user.role}
+    new_access_token = create_access_token(token_data)
+    new_refresh_token = create_refresh_token(token_data)
+
+    set_auth_cookies(response, new_access_token, new_refresh_token)
+
+    return {
+        "access_token": new_access_token,
+        "refresh_token": new_refresh_token,
+        "message": "Token refreshed"
+    }
 
 @router.post("/logout")
 def logout(response: Response):
     response.delete_cookie(
         key=settings.COOKIE_NAME,
+        httponly=True,
+        secure=settings.COOKIE_SECURE,
+        samesite=settings.COOKIE_SAMESITE,
+        domain=settings.COOKIE_DOMAIN
+    )
+    response.delete_cookie(
+        key=settings.REFRESH_COOKIE_NAME,
         httponly=True,
         secure=settings.COOKIE_SECURE,
         samesite=settings.COOKIE_SAMESITE,
@@ -152,15 +203,17 @@ async def auth_line(request: Request, db: Session = Depends(get_db)):
         if source == "pos" and user.role not in settings.POS_ALLOWED_ROLES:
             return RedirectResponse(url=f"{redirect_base}?error=unauthorized_role")
 
-        jwt_token = create_access_token({"user_id": user.id, "role": user.role})
+        token_data = {"sub": user.id, "role": user.role}
+        jwt_token = create_access_token(token_data)
+        refresh_token = create_refresh_token(token_data)
         
         redirect_url = f"{redirect_base}?token={jwt_token}"
             
         response = RedirectResponse(url=redirect_url)
-        set_auth_cookie(response, jwt_token)
+        set_auth_cookies(response, jwt_token, refresh_token)
         return response
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"LINE OAuth error: {str(e)}")
+        raise AuthException(message=f"LINE OAuth error: {str(e)}", code="LINE_OAUTH_ERROR")
 
 @router.get("/google/callback", name="auth_google")
 async def auth_google(request: Request, db: Session = Depends(get_db)):
@@ -192,16 +245,18 @@ async def auth_google(request: Request, db: Session = Depends(get_db)):
         if source == "pos" and user.role not in settings.POS_ALLOWED_ROLES:
             return RedirectResponse(url=f"{redirect_base}?error=unauthorized_role")
 
-        jwt_token = create_access_token({"user_id": user.id, "role": user.role})
+        token_data = {"sub": user.id, "role": user.role}
+        jwt_token = create_access_token(token_data)
+        refresh_token = create_refresh_token(token_data)
         
         # Determine redirect URL based on state and append token
         redirect_url = f"{redirect_base}?token={jwt_token}"
             
         response = RedirectResponse(url=redirect_url)
-        set_auth_cookie(response, jwt_token)
+        set_auth_cookies(response, jwt_token, refresh_token)
         return response
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"OAuth error: {str(e)}")
+        raise AuthException(message=f"Google OAuth error: {str(e)}", code="GOOGLE_OAUTH_ERROR")
 
 # --- Generic OAuth Login ---
 
@@ -248,7 +303,7 @@ async def auth_facebook(request: Request, db: Session = Depends(get_db)):
     try:
         token = await oauth.facebook.authorize_access_token(request)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Facebook OAuth error: {str(e)}")
+        raise AuthException(message=f"Facebook OAuth error: {str(e)}", code="FACEBOOK_OAUTH_ERROR")
 
     resp = await oauth.facebook.get("me?fields=id,name,email", token=token)
     profile = resp.json()
@@ -270,9 +325,12 @@ async def auth_facebook(request: Request, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(user)
 
-    jwt_token = create_access_token({"user_id": user.id, "role": user.role})
+    token_data = {"sub": user.id, "role": user.role}
+    jwt_token = create_access_token(token_data)
+    refresh_token = create_refresh_token(token_data)
+    
     response = RedirectResponse(url=settings.WEB_FRONTEND_URL)
-    set_auth_cookie(response, jwt_token)
+    set_auth_cookies(response, jwt_token, refresh_token)
     return response
 
 @router.post("/register")
@@ -291,7 +349,7 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
 
     existing_username = db.query(models.User).filter(models.User.username == user.username).first()
     if existing_username:
-        raise HTTPException(status_code=400, detail="Username already exists")
+        raise AuthException(message="Username already exists", code="USERNAME_EXISTS")
 
     try:
         new_user = models.User(
@@ -310,4 +368,4 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
         return {"message": "register success", "user_id": new_user.id}
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise AuthException(message=str(e), status_code=500, code="REGISTRATION_ERROR")

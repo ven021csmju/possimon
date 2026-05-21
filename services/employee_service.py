@@ -1,10 +1,9 @@
 from sqlalchemy.orm import Session
-from fastapi import HTTPException
+from exceptions.not_found_exception import NotFoundException
+from exceptions.auth_exception import AuthException
 import models, schemas
-import logging
 from core.security import hash_password
-
-logger = logging.getLogger("possimon")
+from core.logging_config import logger
 
 def get_employees(db: Session):
     return db.query(models.User).filter(models.User.role.in_(["admin", "manager", "cashier"])).all()
@@ -13,7 +12,7 @@ def create_employee(db: Session, employee: schemas.EmployeeCreate):
     # Check if email or username already exists
     if db.query(models.User).filter((models.User.email == employee.email) | (models.User.username == employee.username)).first():
         logger.warning(f"Employee creation failed: Email/Username {employee.email}/{employee.username} already exists")
-        raise HTTPException(status_code=400, detail="Email or Username already exists")
+        raise AuthException(message="Email or Username already exists", code="USER_ALREADY_EXISTS")
     
     db_employee = models.User(
         first_name=employee.first_name,
@@ -39,7 +38,7 @@ def update_employee(db: Session, employee_id: int, employee_update: schemas.Empl
     
     if not db_employee:
         logger.warning(f"Update failed: Employee {employee_id} not found")
-        raise HTTPException(status_code=404, detail="Employee not found")
+        raise NotFoundException(message="Employee not found", code="EMPLOYEE_NOT_FOUND")
     
     update_data = employee_update.dict(exclude_unset=True)
     if "password" in update_data:
@@ -61,7 +60,7 @@ def delete_employee(db: Session, employee_id: int):
     
     if not db_employee:
         logger.warning(f"Delete failed: Employee {employee_id} not found")
-        raise HTTPException(status_code=404, detail="Employee not found")
+        raise NotFoundException(message="Employee not found", code="EMPLOYEE_NOT_FOUND")
     
     db.delete(db_employee)
     db.commit()

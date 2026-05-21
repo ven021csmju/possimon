@@ -10,13 +10,27 @@ from core.config import settings
 from core.logging_config import setup_logging
 from routers import auth, products, orders, users, payments, wines, websocket, employees, customers, product_images
 
+from exceptions.handler import register_exception_handlers
+from core.logging_config import logger as app_logger
+
 # Initialize logging
-logger = setup_logging()
+setup_logging()
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION
 )
+
+# Middleware for request logging
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    app_logger.info(f"Incoming request: method={request.method} path={request.url.path}")
+    response = await call_next(request)
+    app_logger.info(f"Request completed: method={request.method} path={request.url.path} status_code={response.status_code}")
+    return response
+
+# Register exception handlers
+register_exception_handlers(app)
 
 # Ensure upload directory exists
 os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
@@ -65,25 +79,16 @@ app.add_middleware(ProxyHeadersMiddleware)
 # Startup event
 @app.on_event("startup")
 def startup_event():
-    logger.info("Starting up the application...")
+    app_logger.info("Starting up the application...")
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     try:
         seed_data(db)
-        logger.info("Database seeded successfully.")
+        app_logger.info("Database seeded successfully.")
     except Exception as e:
-        logger.error(f"Error during startup seeding: {e}")
+        app_logger.error(f"Error during startup seeding: {e}")
     finally:
         db.close()
-
-# Global Exception Handler
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    logger.error(f"Unhandled Exception: {exc}", exc_info=True)
-    return JSONResponse(
-        status_code=500,
-        content={"message": "Internal Server Error", "detail": str(exc)},
-    )
 
 # Root / Health Check
 @app.get("/")

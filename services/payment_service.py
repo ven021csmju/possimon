@@ -1,21 +1,24 @@
 from sqlalchemy.orm import Session
-from fastapi import HTTPException
+from exceptions.not_found_exception import NotFoundException
+from exceptions.auth_exception import AuthException
 import models
-import logging
-
-logger = logging.getLogger("possimon")
+from core.logging_config import logger
 
 async def confirm_payment(order_id: int, db: Session, user, manager):
     logger.info(f"Confirming payment for order_id={order_id} by user_id={user.id}")
     db_order = db.query(models.Order).filter(models.Order.id == order_id).first()
     if not db_order:
         logger.warning(f"Payment confirmation failed: Order {order_id} not found")
-        raise HTTPException(status_code=404, detail="Order not found")
+        raise NotFoundException(message="Order not found", code="ORDER_NOT_FOUND")
     
     # Allow if user is admin OR the owner of the order
     if user.role != "admin" and db_order.user_id != user.id:
         logger.warning(f"User {user.id} unauthorized to confirm payment for order {order_id}")
-        raise HTTPException(status_code=403, detail="You do not have permission to confirm this payment")
+        raise AuthException(
+            message="You do not have permission to confirm this payment",
+            code="PERMISSION_DENIED",
+            status_code=403
+        )
 
     if db_order.status == "paid":
         logger.info(f"Order {order_id} is already marked as paid")
@@ -44,4 +47,5 @@ async def confirm_payment(order_id: int, db: Session, user, manager):
     except Exception as e:
         db.rollback()
         logger.error(f"Error during payment confirmation for order {order_id}: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal server error during payment confirmation")
+        # Use AppException for wrapped internal error or let global handler handle it
+        raise AuthException(message="Internal server error during payment confirmation", code="PAYMENT_CONFIRM_ERROR", status_code=500)

@@ -11,7 +11,8 @@ class Settings(BaseSettings):
     # Security
     SECRET_KEY: str = "dev_secret_key_change_me_in_prod"
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_HOURS: int = 24
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     
     # Database
     DATABASE_URL: str = "sqlite:///./possimon.db"
@@ -49,6 +50,7 @@ class Settings(BaseSettings):
     
     # Cookie Settings
     COOKIE_NAME: str = "access_token"
+    REFRESH_COOKIE_NAME: str = "refresh_token"
     COOKIE_SECURE: bool = True
     COOKIE_SAMESITE: str = "none" # "lax", "strict", or "none"
     COOKIE_DOMAIN: Optional[str] = None # Set to your domain in production

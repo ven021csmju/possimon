@@ -1,10 +1,10 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
+from exceptions.order_exception import OrderException
+from exceptions.stock_exception import StockException
 import models
 import schemas
-import logging
-
-logger = logging.getLogger("possimon")
+from core.logging_config import logger
 
 def normalize_payment_method(payment_method: schemas.PaymentMethod):
     if payment_method == schemas.PaymentMethod.QR:
@@ -23,13 +23,13 @@ def create_order(db: Session, order: schemas.OrderCreate, user_id: int):
                     item.product_id = product.id
                 else:
                     logger.warning(f"Product SKU '{item.sku}' not found during order creation")
-                    raise HTTPException(
-                        status_code=400, 
-                        detail=f"Product with SKU '{item.sku}' not found and no product_id provided"
+                    raise OrderException(
+                        message=f"Product with SKU '{item.sku}' not found",
+                        code="PRODUCT_NOT_FOUND"
                     )
             else:
                 logger.warning("Order item missing both product_id and sku")
-                raise HTTPException(status_code=400, detail="Each item must have a product_id or a valid sku")
+                raise OrderException(message="Each item must have a product_id or a valid sku")
 
     # 2. Get unique product IDs and sort them to prevent deadlocks
     product_ids = sorted(list(set(item.product_id for item in order.items)))
@@ -44,7 +44,7 @@ def create_order(db: Session, order: schemas.OrderCreate, user_id: int):
             ).first()
             if not address:
                 logger.warning(f"Address ID {order.address_id} not found for user {user_id}")
-                raise HTTPException(status_code=404, detail=f"Address ID {order.address_id} not found for this user")
+                raise OrderException(message=f"Address ID {order.address_id} not found for this user", status_code=404)
         
         # 3. Lock product rows and validate existence in one go
         products = db.query(models.Product).filter(
@@ -57,14 +57,13 @@ def create_order(db: Session, order: schemas.OrderCreate, user_id: int):
         for item in order.items:
             if item.product_id not in product_map:
                 logger.error(f"Product ID {item.product_id} unexpectedly not found after locking")
-                raise HTTPException(status_code=404, detail=f"Product ID {item.product_id} not found in database")
+                raise OrderException(message=f"Product ID {item.product_id} not found in database", status_code=404)
             
             product = product_map[item.product_id]
             if product.stock < item.quantity:
                 logger.warning(f"Insufficient stock for product {product.id} ({product.name}): Req={item.quantity}, Avail={product.stock}")
-                raise HTTPException(
-                    status_code=400, 
-                    detail=f"Insufficient stock for product '{product.name}' (Requested: {item.quantity}, Available: {product.stock})"
+                raise StockException(
+                    message=f"Insufficient stock for product '{product.name}' (Requested: {item.quantity}, Available: {product.stock})"
                 )
 
         payment_method = normalize_payment_method(order.payment_method)
@@ -118,11 +117,16 @@ def create_order(db: Session, order: schemas.OrderCreate, user_id: int):
         logger.info(f"Order created successfully: order_id={db_order.id}, total={db_order.total_price}")
         return db_order
 
+    except (OrderException, StockException) as e:
+        db.rollback()
+        logger.warning(f"Order creation failed (Client Error): {e.message}")
+        raise
     except HTTPException as e:
         db.rollback()
-        logger.warning(f"Order creation failed (Client Error): {e.detail}")
+        logger.warning(f"Order creation failed (HTTP Error): {e.detail}")
         raise
     except Exception as e:
         db.rollback()
         logger.error(f"Critical error during order creation: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        # We can let the global handler handle this, or wrap it in a custom exception
+        raise OrderException(message=str(e), status_code=500, code="INTERNAL_ORDER_ERROR")
