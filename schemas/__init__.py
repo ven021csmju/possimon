@@ -238,6 +238,11 @@ class WineCreate(BaseModel):
     vintage: Optional[int] = Field(default=None, ge=1000, le=9999)
     alcohol: Optional[float] = Field(default=None, ge=0, le=100)
     description: Optional[str] = None
+    food_pairing: Optional[str] = Field(default=None, max_length=500)
+    sweetness: Optional[int] = Field(default=None, ge=1, le=5)
+    bottle_size_ml: Optional[int] = Field(default=750, ge=187, le=3000)
+    tasting_notes: Optional[str] = None
+    aging_notes: Optional[str] = Field(default=None, max_length=255)
     grape_ids: List[int] = Field(default_factory=list)
 
 class WineUpdate(BaseModel):
@@ -252,6 +257,11 @@ class WineUpdate(BaseModel):
     vintage: Optional[int] = Field(None, ge=1000, le=9999)
     alcohol: Optional[float] = Field(None, ge=0, le=100)
     description: Optional[str] = None
+    food_pairing: Optional[str] = Field(None, max_length=500)
+    sweetness: Optional[int] = Field(None, ge=1, le=5)
+    bottle_size_ml: Optional[int] = Field(None, ge=187, le=3000)
+    tasting_notes: Optional[str] = None
+    aging_notes: Optional[str] = Field(None, max_length=255)
     grape_ids: Optional[List[int]] = None
 
 class WineOut(ProductOut):
@@ -260,6 +270,11 @@ class WineOut(ProductOut):
     vintage: Optional[int] = None
     alcohol: Optional[float] = None
     description: Optional[str] = None
+    food_pairing: Optional[str] = None
+    sweetness: Optional[int] = None
+    bottle_size_ml: Optional[int] = None
+    tasting_notes: Optional[str] = None
+    aging_notes: Optional[str] = None
     winery: Optional[WineryOut] = None
     region: Optional[RegionOut] = None
     country: Optional[CountryOut] = None

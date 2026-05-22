@@ -165,6 +165,11 @@ class Wine(Product):
     vintage = Column(Integer)
     alcohol = Column(Float)
     description = Column(String)
+    food_pairing = Column(String(500), nullable=True)
+    sweetness = Column(Integer, nullable=True)  # 1 (dry) – 5 (sweet)
+    bottle_size_ml = Column(Integer, default=750)
+    tasting_notes = Column(String, nullable=True)
+    aging_notes = Column(String(255), nullable=True)
 
     winery = relationship("Winery", back_populates="wines")
     region = relationship("Region", back_populates="wines")

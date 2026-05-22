@@ -1,9 +1,7 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, status
 from typing import List
-from jose import jwt, JWTError
-from core.config import settings
-SECRET_KEY = settings.SECRET_KEY
-ALGORITHM = settings.ALGORITHM
+from auth.jwt import decode_token
+from core.logging_config import logger
 
 router = APIRouter()
 
@@ -36,10 +34,9 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(None)):
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
 
-    try:
-        # Verify JWT token
-        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except JWTError:
+    payload = decode_token(token, expected_type="access")
+    if not payload:
+        logger.warning("WebSocket rejected: invalid or non-access token")
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
 

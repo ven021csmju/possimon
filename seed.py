@@ -95,7 +95,12 @@ def seed_data(db: Session):
         alcohol=13.5,
         stock=10,
         type="wine",
-        description="A legendary vintage from Château Margaux."
+        description="A legendary vintage from Château Margaux.",
+        food_pairing="Roasted lamb, aged cheddar, truffle risotto",
+        sweetness=1,
+        bottle_size_ml=750,
+        tasting_notes="Blackcurrant, cedar, violet and graphite with silky tannins.",
+        aging_notes="Peak 2028–2045",
     )
     wine1.grapes = [cabernet, merlot]
 
@@ -114,7 +119,12 @@ def seed_data(db: Session):
         alcohol=14.0,
         stock=20,
         type="wine",
-        description="Famous Super Tuscan wine."
+        description="Famous Super Tuscan wine.",
+        food_pairing="Bistecca alla Fiorentina, porcini pasta, pecorino",
+        sweetness=2,
+        bottle_size_ml=750,
+        tasting_notes="Cherry, spice, tobacco leaf and warm oak.",
+        aging_notes="Drink now through 2032",
     )
     db.add_all([wine1, wine2])
     db.commit()
