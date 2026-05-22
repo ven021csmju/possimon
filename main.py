@@ -1,5 +1,5 @@
 import os
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -98,6 +98,10 @@ def health_check():
         "project": settings.PROJECT_NAME,
         "version": settings.VERSION
     }
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    return Response(status_code=204)
 
 # Static/Legal Routes
 @app.get("/privacy", response_class=HTMLResponse)
