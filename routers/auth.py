@@ -6,6 +6,8 @@ import os
 import secrets
 import json
 import base64
+import httpx
+from authlib.integrations.base_client.errors import OAuthError
 from auth.dependencies import get_db, get_current_user
 from core.security import verify_password, hash_password
 from core.config import settings
@@ -183,6 +185,43 @@ def get_or_create_oauth_user(db: Session, provider: str, provider_id: str, email
             created = True
     return user, created
 
+async def fetch_line_access_token(request: Request):
+    error = request.query_params.get("error")
+    if error:
+        description = request.query_params.get("error_description")
+        raise OAuthError(error=error, description=description)
+
+    params = {
+        "code": request.query_params.get("code"),
+        "state": request.query_params.get("state"),
+    }
+    state_data = await oauth.line.framework.get_state_data(request.session, params.get("state"))
+    await oauth.line.framework.clear_state_data(request.session, params.get("state"))
+    params = oauth.line._format_state_params(state_data, params)
+    token = await oauth.line.fetch_access_token(**params)
+    return token, state_data
+
+async def verify_line_id_token(id_token: str, nonce: Optional[str] = None):
+    data = {
+        "id_token": id_token,
+        "client_id": settings.LINE_CHANNEL_ID,
+    }
+    if nonce:
+        data["nonce"] = nonce
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        response = await client.post(
+            "https://api.line.me/oauth2/v2.1/verify",
+            data=data,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+
+    if response.status_code != 200:
+        detail = response.json() if response.headers.get("content-type", "").startswith("application/json") else response.text
+        raise AuthException(message=f"LINE ID token verification failed: {detail}", code="LINE_ID_TOKEN_INVALID")
+
+    return response.json()
+
 @router.get("/line/callback", name="auth_line")
 async def auth_line(request: Request, db: Session = Depends(get_db)):
     try:
@@ -201,10 +240,12 @@ async def auth_line(request: Request, db: Session = Depends(get_db)):
         if not redirect_base:
             redirect_base = settings.POS_FRONTEND_URL if source == "pos" else settings.WEB_FRONTEND_URL
 
-        token = await oauth.line.authorize_access_token(request)
-        
-        # Parse and verify ID Token using RS256 and registered JWKS
-        user_info = await oauth.line.parse_id_token(request, token)
+        token, state_data = await fetch_line_access_token(request)
+        id_token = token.get("id_token")
+        if not id_token:
+            raise AuthException(message="LINE did not return an ID token", code="LINE_ID_TOKEN_MISSING")
+
+        user_info = await verify_line_id_token(id_token, state_data.get("nonce"))
         
         user, created = get_or_create_oauth_user(
             db, "line", user_info.get("sub"), user_info.get("email"), user_info.get("name", "Line User")
