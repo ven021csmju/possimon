@@ -177,12 +177,22 @@ def get_or_create_oauth_user(db: Session, provider: str, provider_id: str, email
                 email=email,
                 username=username,
                 first_name=name,
+                last_name="",
                 role="customer"
             )
             db.add(user)
             db.commit()
             db.refresh(user)
             created = True
+        else:
+            user.provider = provider
+            user.provider_id = provider_id
+            if name and not user.first_name:
+                user.first_name = name
+            if user.last_name is None:
+                user.last_name = ""
+            db.commit()
+            db.refresh(user)
     return user, created
 
 async def fetch_line_access_token(request: Request):

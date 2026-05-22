@@ -144,8 +144,8 @@ class LoginRequest(BaseModel):
 class UserOut(BaseModel):
     id: int
     first_name: str
-    last_name: str
-    email: EmailStr
+    last_name: Optional[str] = None
+    email: Optional[EmailStr] = None
     username: str
     role: str
 

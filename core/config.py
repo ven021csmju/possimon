@@ -1,3 +1,4 @@
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import List, Optional
 import os
@@ -33,9 +34,9 @@ class Settings(BaseSettings):
     
     # External APIs
     API_KEY: str = "" # Map directly to API_KEY in .env
-    FRONTEND_URL: str = "https://administratunegocio.club/auth/success"
-    WEB_FRONTEND_URL: str = "https://administratunegocio.club/auth/success"
-    POS_FRONTEND_URL: str = "https://administratunegocio.club/auth/success"
+    FRONTEND_URL: str = "https://front-posimon.vercel.app/auth/success"
+    WEB_FRONTEND_URL: Optional[str] = None
+    POS_FRONTEND_URL: Optional[str] = None
     
     # Auth Roles
     POS_ALLOWED_ROLES: List[str] = ["admin", "manager", "cashier", "customer"]
@@ -69,5 +70,13 @@ class Settings(BaseSettings):
         case_sensitive=True,
         extra="ignore" # Allow extra env variables without crashing
     )
+
+    @model_validator(mode="after")
+    def set_frontend_url_defaults(self):
+        if not self.WEB_FRONTEND_URL:
+            self.WEB_FRONTEND_URL = self.FRONTEND_URL
+        if not self.POS_FRONTEND_URL:
+            self.POS_FRONTEND_URL = self.FRONTEND_URL
+        return self
 
 settings = Settings()
