@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, BackgroundTasks, Depends, status
 from sqlalchemy.orm import Session
 from typing import List
 import models
 import schemas
 from auth.dependencies import get_db, get_current_user, RoleChecker
-from services import order_service
+from services import order_service, notification_service
 from exceptions.not_found_exception import NotFoundException
 from exceptions.auth_exception import AuthException
 
@@ -13,10 +13,17 @@ router = APIRouter(prefix="/orders", tags=["orders"])
 @router.post("", response_model=schemas.OrderOut)
 def create_order(
     order: schemas.OrderCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    return order_service.create_order(db, order, current_user.id)
+    db_order, affected_products = order_service.create_order(db, order, current_user.id)
+    background_tasks.add_task(
+        notification_service.post_order_created_side_effects,
+        db_order,
+        affected_products,
+    )
+    return db_order
 
 @router.get("", response_model=List[schemas.OrderOut])
 def get_orders(

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from typing import Optional
@@ -14,6 +14,7 @@ from auth.oauth import oauth
 import models
 import schemas
 from exceptions.auth_exception import AuthException
+from services import notification_service
 
 router = APIRouter(tags=["auth"])
 
@@ -160,11 +161,12 @@ def get_or_create_oauth_user(db: Session, provider: str, provider_id: str, email
         models.User.provider == provider,
         models.User.provider_id == provider_id
     ).first()
-    
+    created = False
+
     if not user:
         if email:
             user = db.query(models.User).filter(models.User.email == email).first()
-            
+
         if not user:
             username = f"{provider}_{provider_id}"
             user = models.User(
@@ -178,7 +180,8 @@ def get_or_create_oauth_user(db: Session, provider: str, provider_id: str, email
             db.add(user)
             db.commit()
             db.refresh(user)
-    return user
+            created = True
+    return user, created
 
 @router.get("/line/callback", name="auth_line")
 async def auth_line(request: Request, db: Session = Depends(get_db)):
@@ -203,9 +206,11 @@ async def auth_line(request: Request, db: Session = Depends(get_db)):
         # Parse and verify ID Token using RS256 and registered JWKS
         user_info = await oauth.line.parse_id_token(request, token)
         
-        user = get_or_create_oauth_user(
+        user, created = get_or_create_oauth_user(
             db, "line", user_info.get("sub"), user_info.get("email"), user_info.get("name", "Line User")
         )
+        if created:
+            await notification_service.notify_new_customer(user)
 
         # Role Validation for POS
         if source == "pos" and user.role not in settings.POS_ALLOWED_ROLES:
@@ -245,9 +250,11 @@ async def auth_google(request: Request, db: Session = Depends(get_db)):
         resp = await oauth.google.get('https://www.googleapis.com/oauth2/v2/userinfo', token=token)
         user_info = resp.json()
         
-        user = get_or_create_oauth_user(
+        user, created = get_or_create_oauth_user(
             db, "google", user_info.get("id"), user_info.get("email"), user_info.get("name")
         )
+        if created:
+            await notification_service.notify_new_customer(user)
 
         # Role Validation for POS
         if source == "pos" and user.role not in settings.POS_ALLOWED_ROLES:
@@ -319,6 +326,7 @@ async def auth_facebook(request: Request, db: Session = Depends(get_db)):
     name = profile.get("name")
 
     user = db.query(models.User).filter(models.User.email == email).first()
+    created = False
     if not user:
         user = models.User(
             first_name=name,
@@ -332,6 +340,10 @@ async def auth_facebook(request: Request, db: Session = Depends(get_db)):
         db.add(user)
         db.commit()
         db.refresh(user)
+        created = True
+
+    if created:
+        await notification_service.notify_new_customer(user)
 
     token_data = {"sub": str(user.id), "role": user.role}
     jwt_token = create_access_token(token_data)
@@ -342,7 +354,11 @@ async def auth_facebook(request: Request, db: Session = Depends(get_db)):
     return response
 
 @router.post("/register")
-def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
+def register(
+    user: schemas.UserCreate,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
     existing_user = db.query(models.User).filter(models.User.email == user.email).first()
 
     if existing_user:
@@ -373,6 +389,7 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
         db.add(new_user)
         db.commit()
         db.refresh(new_user)
+        background_tasks.add_task(notification_service.notify_new_customer, new_user)
         return {"message": "register success", "user_id": new_user.id}
     except Exception as e:
         db.rollback()

@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends
 from sqlalchemy.orm import Session
 from typing import List
 import crud
 import schemas
 from auth.dependencies import get_db, RoleChecker
+from services import notification_service
 
 router = APIRouter(prefix="/products", tags=["products"])
 
@@ -32,7 +33,10 @@ def update_product(
 def refill_stock(
     product_id: int,
     refill: schemas.StockRefill,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user = Depends(RoleChecker(["admin", "manager", "cashier"])),
 ):
-    return crud.refill_stock(db, product_id, refill)
+    product = crud.refill_stock(db, product_id, refill)
+    background_tasks.add_task(notification_service.notify_low_stock, product)
+    return product

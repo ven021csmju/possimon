@@ -3,8 +3,47 @@ from exceptions.not_found_exception import NotFoundException
 from exceptions.auth_exception import AuthException
 import models
 from core.logging_config import logger
+from services import notification_service
 
-async def confirm_payment(order_id: int, db: Session, user, manager):
+async def fail_payment(
+    order_id: int,
+    db: Session,
+    user,
+    reason: str = "Payment failed or timed out",
+):
+    logger.info(f"Marking payment failed for order_id={order_id} by user_id={user.id}")
+    db_order = db.query(models.Order).filter(models.Order.id == order_id).first()
+    if not db_order:
+        raise NotFoundException(message="Order not found", code="ORDER_NOT_FOUND")
+
+    if user.role != "admin" and db_order.user_id != user.id:
+        raise AuthException(
+            message="You do not have permission to update this payment",
+            code="PERMISSION_DENIED",
+            status_code=403,
+        )
+
+    if db_order.status == models.OrderStatus.PAID:
+        return {"message": "Order is already paid"}
+
+    try:
+        payment = db.query(models.Payment).filter(models.Payment.order_id == order_id).first()
+        if payment:
+            payment.status = "failed"
+        db.commit()
+        await notification_service.notify_payment_failed(order_id, reason)
+        return {"message": "Payment marked as failed and notification sent"}
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error during payment failure for order {order_id}: {str(e)}", exc_info=True)
+        raise AuthException(
+            message="Internal server error during payment failure",
+            code="PAYMENT_FAIL_ERROR",
+            status_code=500,
+        )
+
+
+async def confirm_payment(order_id: int, db: Session, user):
     logger.info(f"Confirming payment for order_id={order_id} by user_id={user.id}")
     db_order = db.query(models.Order).filter(models.Order.id == order_id).first()
     if not db_order:
@@ -35,12 +74,7 @@ async def confirm_payment(order_id: int, db: Session, user, manager):
         db.commit()
         logger.info(f"Order {order_id} status updated to 'paid' in DB")
 
-        # Notify all connected clients (especially the dashboard)
-        await manager.broadcast({
-            "type": "payment",
-            "order_id": order_id,
-            "status": "paid"
-        })
+        await notification_service.notify_order_paid(order_id)
         logger.debug(f"Broadcasted payment confirmation for order {order_id}")
 
         return {"message": "Payment confirmed and notification sent"}

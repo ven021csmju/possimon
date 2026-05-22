@@ -114,8 +114,9 @@ def create_order(db: Session, order: schemas.OrderCreate, user_id: int):
         # Commit everything as one atomic unit
         db.commit()
         db.refresh(db_order)
+        affected_products = list({product_map[item.product_id] for item in order.items})
         logger.info(f"Order created successfully: order_id={db_order.id}, total={db_order.total_price}")
-        return db_order
+        return db_order, affected_products
 
     except (OrderException, StockException) as e:
         db.rollback()
