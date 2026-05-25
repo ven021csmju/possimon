@@ -32,6 +32,13 @@ def get_orders(
 ):
     return db.query(models.Order).all()
 
+@router.get("/my", response_model=List[schemas.OrderOut])
+def get_my_orders(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    return db.query(models.Order).filter(models.Order.user_id == current_user.id).all()
+
 @router.get("/{order_id}", response_model=schemas.OrderOut)
 def get_order(
     order_id: int,
