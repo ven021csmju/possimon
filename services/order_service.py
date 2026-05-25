@@ -88,6 +88,11 @@ def create_order(db: Session, order: schemas.OrderCreate, user_id: int):
             payment_method=payment_method,
             order_type=models.OrderType(order.order_type.value),
             shipping_method=models.ShippingMethod(order.shipping_method.value) if order.shipping_method else None,
+            is_full_tax_invoice=order.is_full_tax_invoice,
+            tax_id=order.tax_id,
+            tax_business_name=order.tax_business_name,
+            tax_address=order.tax_address,
+            use_shipping_as_tax_address=order.use_shipping_as_tax_address,
             total_price=0,
             status=models.OrderStatus.PENDING
         )

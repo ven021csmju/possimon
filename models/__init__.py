@@ -103,6 +103,14 @@ class Order(Base):
     order_type = Column(Enum(OrderType, values_callable=enum_values), default=OrderType.ONLINE)
     shipping_method = Column(Enum(ShippingMethod, values_callable=enum_values), nullable=True)
     shipping_fee = Column(Float, default=0.0)
+    
+    # Tax Invoice Fields
+    is_full_tax_invoice = Column(Boolean, default=False)
+    tax_id = Column(String, nullable=True)
+    tax_business_name = Column(String, nullable=True)
+    tax_address = Column(String, nullable=True) # Full text or specific field
+    use_shipping_as_tax_address = Column(Boolean, default=True)
+
     stripe_session_id = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 

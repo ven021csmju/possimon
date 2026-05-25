@@ -105,6 +105,14 @@ class OrderCreate(BaseModel):
     payment_method: PaymentMethod
     order_type: OrderType = OrderType.ONLINE
     shipping_method: Optional[ShippingMethod] = None
+    
+    # Tax Invoice Fields
+    is_full_tax_invoice: bool = False
+    tax_id: Optional[str] = None
+    tax_business_name: Optional[str] = None
+    tax_address: Optional[str] = None
+    use_shipping_as_tax_address: bool = True
+
     items: List[OrderItemCreate] = Field(..., min_length=1)
     total_amount: Optional[float] = None 
     received_amount: Optional[float] = None
@@ -121,6 +129,14 @@ class OrderOut(BaseModel):
     order_type: OrderType
     shipping_method: Optional[ShippingMethod] = None
     shipping_fee: float = 0.0
+    
+    # Tax Invoice Fields
+    is_full_tax_invoice: bool
+    tax_id: Optional[str]
+    tax_business_name: Optional[str]
+    tax_address: Optional[str]
+    use_shipping_as_tax_address: bool
+
     created_at: datetime.datetime
     items: List[OrderItemOut]
 
