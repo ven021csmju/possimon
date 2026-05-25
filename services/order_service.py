@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
+from typing import Optional
 from exceptions.order_exception import OrderException
 from exceptions.stock_exception import StockException
 import models
