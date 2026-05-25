@@ -11,6 +11,19 @@ def normalize_payment_method(payment_method: schemas.PaymentMethod):
         return models.PaymentMethod.PROMPTPAY
     return models.PaymentMethod(payment_method.value)
 
+def calculate_shipping_fee(order_type: schemas.OrderType, shipping_method: Optional[schemas.ShippingMethod], items_total: float) -> float:
+    if order_type == schemas.OrderType.POS or not shipping_method:
+        return 0.0
+    
+    if shipping_method == schemas.ShippingMethod.STANDARD:
+        if items_total >= 2000:
+            return 0.0
+        return 100.0
+    elif shipping_method == schemas.ShippingMethod.EXPRESS:
+        return 250.0
+    
+    return 0.0
+
 def create_order(db: Session, order: schemas.OrderCreate, user_id: int):
     logger.info(f"Creating order for user_id={user_id}, type={order.order_type}, items_count={len(order.items)}")
     # 1. Ensure all items have a valid product_id
@@ -74,19 +87,20 @@ def create_order(db: Session, order: schemas.OrderCreate, user_id: int):
             address_id=order.address_id,
             payment_method=payment_method,
             order_type=models.OrderType(order.order_type.value),
+            shipping_method=models.ShippingMethod(order.shipping_method.value) if order.shipping_method else None,
             total_price=0,
             status=models.OrderStatus.PENDING
         )
         db.add(db_order)
         db.flush() # Get order.id
 
-        total_price = 0
+        items_total = 0
         for item in order.items:
             product = product_map[item.product_id]
             # Use selling_price if available, otherwise fallback to price
             item_price = product.selling_price if product.selling_price > 0 else product.price
             item_total = item_price * item.quantity
-            total_price += item_total
+            items_total += item_total
 
             # Create OrderItem
             db_item = models.OrderItem(
@@ -101,7 +115,10 @@ def create_order(db: Session, order: schemas.OrderCreate, user_id: int):
             product.stock -= item.quantity
             logger.debug(f"Reduced stock for product {product.id} by {item.quantity}. New stock: {product.stock}")
 
-        db_order.total_price = total_price
+        # Calculate Shipping
+        shipping_fee = calculate_shipping_fee(order.order_type, order.shipping_method, items_total)
+        db_order.shipping_fee = shipping_fee
+        db_order.total_price = items_total + shipping_fee
 
         # 5. Create Payment
         db_payment = models.Payment(

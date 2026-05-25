@@ -16,6 +16,15 @@ class PaymentMethod(enum.Enum):
     PROMPTPAY = "promptpay"
     CREDIT_CARD = "credit_card"
     TRANSFER = "transfer"
+    ALIPAY = "alipay"
+    WECHAT_PAY = "wechat_pay"
+    LINE_PAY = "line_pay"
+    SHOPEE_PAY = "shopee_pay"
+    TRUE_WALLET = "true_wallet"
+
+class ShippingMethod(enum.Enum):
+    STANDARD = "standard"
+    EXPRESS = "express"
 
 class OrderType(enum.Enum):
     POS = "pos"
@@ -92,6 +101,8 @@ class Order(Base):
     status = Column(Enum(OrderStatus, values_callable=enum_values), default=OrderStatus.PENDING)
     payment_method = Column(Enum(PaymentMethod, values_callable=enum_values))
     order_type = Column(Enum(OrderType, values_callable=enum_values), default=OrderType.ONLINE)
+    shipping_method = Column(Enum(ShippingMethod, values_callable=enum_values), nullable=True)
+    shipping_fee = Column(Float, default=0.0)
     stripe_session_id = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 

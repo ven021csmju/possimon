@@ -17,6 +17,15 @@ class PaymentMethod(str, enum.Enum):
     QR = "qr"
     CREDIT_CARD = "credit_card"
     TRANSFER = "transfer"
+    ALIPAY = "alipay"
+    WECHAT_PAY = "wechat_pay"
+    LINE_PAY = "line_pay"
+    SHOPEE_PAY = "shopee_pay"
+    TRUE_WALLET = "true_wallet"
+
+class ShippingMethod(str, enum.Enum):
+    STANDARD = "standard"
+    EXPRESS = "express"
 
 class OrderType(str, enum.Enum):
     POS = "pos"
@@ -95,6 +104,7 @@ class OrderCreate(BaseModel):
     address_id: Optional[int] = Field(None, gt=0) # Optional for POS
     payment_method: PaymentMethod
     order_type: OrderType = OrderType.ONLINE
+    shipping_method: Optional[ShippingMethod] = None
     items: List[OrderItemCreate] = Field(..., min_length=1)
     total_amount: Optional[float] = None 
     received_amount: Optional[float] = None
@@ -109,6 +119,8 @@ class OrderOut(BaseModel):
     status: OrderStatus
     payment_method: PaymentMethod
     order_type: OrderType
+    shipping_method: Optional[ShippingMethod] = None
+    shipping_fee: float = 0.0
     created_at: datetime.datetime
     items: List[OrderItemOut]
 
