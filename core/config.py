@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     
     # Database
     DATABASE_URL: str = "sqlite:///./possimon.db"
+    MONGODB_URL: str = "mongodb://localhost:27017"
+    MONGODB_DB_NAME: str = "shopdb"
     
     # CORS
     ALLOWED_ORIGINS: List[str] = [

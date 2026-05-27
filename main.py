@@ -5,10 +5,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from database import Base, SessionLocal, engine
+from database_nosql import create_mongo_indexes, db as mongo_db
 from seed import seed_data
 from core.config import settings
 from core.logging_config import setup_logging
-from routers import auth, products, orders, users, payments, wines, websocket, employees, customers, product_images
+from routers import auth, products, orders, users, payments, wines, websocket, employees, customers, product_images, reviews
 
 from exceptions.handler import register_exception_handlers
 from core.logging_config import logger as app_logger
@@ -78,7 +79,7 @@ app.add_middleware(ProxyHeadersMiddleware)
 
 # Startup event
 @app.on_event("startup")
-def startup_event():
+async def startup_event():
     app_logger.info("Starting up the application...")
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
@@ -89,6 +90,12 @@ def startup_event():
         app_logger.error(f"Error during startup seeding: {e}")
     finally:
         db.close()
+
+    try:
+        await create_mongo_indexes()
+        app_logger.info("MongoDB indexes created successfully.")
+    except Exception as e:
+        app_logger.error(f"Error creating MongoDB indexes: {e}")
 
 # Root / Health Check
 @app.get("/")
@@ -131,6 +138,17 @@ def terms():
     <p>By using this app, you agree to our terms.</p>
     """
 
+@app.get("/test-mongodb")
+async def root():
+
+    collections = await mongo_db.list_collection_names()
+
+    return {
+        "message": "MongoDB Connected",
+        "collections": collections
+    }
+
+
 # Include Routers
 app.include_router(auth.router, prefix="/api/auth")
 app.include_router(employees.router, prefix="/api")
@@ -142,3 +160,4 @@ app.include_router(users.router, prefix="/api")
 app.include_router(payments.router, prefix="/api/payments")
 app.include_router(wines.router, prefix="/api/wines")
 app.include_router(websocket.router, prefix="/api")
+app.include_router(reviews.router)
