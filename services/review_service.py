@@ -1,6 +1,6 @@
 import datetime
 import math
-from typing import Dict, List
+from typing import Any, Dict, List
 
 from bson import ObjectId
 from fastapi import HTTPException, status
@@ -10,6 +10,10 @@ from pymongo.errors import DuplicateKeyError
 from models.review import ReviewCreate
 
 
+PRODUCT_EXTERNAL_ID_FIELDS = ("product_id", "sku", "code", "external_id")
+USER_EXTERNAL_ID_FIELDS = ("user_id", "username", "external_id")
+
+
 def to_object_id(value: str, field_name: str) -> ObjectId:
     if not ObjectId.is_valid(value):
         raise HTTPException(
@@ -17,6 +21,74 @@ def to_object_id(value: str, field_name: str) -> ObjectId:
             detail=f"Invalid {field_name}",
         )
     return ObjectId(value)
+
+
+def build_external_lookup(value: str, fields: tuple[str, ...]) -> Dict[str, Any]:
+    lookups: List[Dict[str, Any]] = [{field: value} for field in fields]
+    return {"$or": lookups}
+
+
+async def resolve_product(db: AsyncIOMotorDatabase, product_id: str, create_if_missing: bool = False) -> Dict:
+    if ObjectId.is_valid(product_id):
+        product = await db.products.find_one({"_id": ObjectId(product_id)})
+        if product:
+            return product
+
+    product = await db.products.find_one(build_external_lookup(product_id, PRODUCT_EXTERNAL_ID_FIELDS))
+    if not product and create_if_missing and not ObjectId.is_valid(product_id):
+        now = datetime.datetime.utcnow()
+        product_doc = {
+            "product_id": product_id,
+            "external_id": product_id,
+            "average_rating": 0.0,
+            "review_count": 0,
+            "created_at": now,
+            "updated_at": now,
+        }
+        try:
+            result = await db.products.insert_one(product_doc)
+            product = await db.products.find_one({"_id": result.inserted_id})
+        except DuplicateKeyError:
+            product = await db.products.find_one(build_external_lookup(product_id, PRODUCT_EXTERNAL_ID_FIELDS))
+
+    if not product:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Product not found",
+        )
+    return product
+
+
+async def resolve_user_id(db: AsyncIOMotorDatabase, user_id: str, username: str) -> Any:
+    now = datetime.datetime.utcnow()
+    if ObjectId.is_valid(user_id):
+        object_id = ObjectId(user_id)
+        await db.users.update_one(
+            {"_id": object_id},
+            {
+                "$set": {
+                    "username": username,
+                    "updated_at": now,
+                },
+                "$setOnInsert": {"created_at": now},
+            },
+            upsert=True,
+        )
+        return object_id
+
+    await db.users.update_one(
+        {"external_id": user_id},
+        {
+            "$set": {
+                "username": username,
+                "user_id": user_id,
+                "updated_at": now,
+            },
+            "$setOnInsert": {"created_at": now},
+        },
+        upsert=True,
+    )
+    return user_id
 
 
 def serialize_review(review: Dict) -> Dict:
@@ -69,31 +141,15 @@ async def sync_product_review_stats(db: AsyncIOMotorDatabase, product_id: Object
 
 
 async def create_review(db: AsyncIOMotorDatabase, review: ReviewCreate) -> Dict:
-    product_id = to_object_id(review.product_id, "product_id")
-    user_id = to_object_id(review.user_id, "user_id")
-
-    product = await db.products.find_one({"_id": product_id})
-    if not product:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Product not found",
-        )
-
-    await db.users.update_one(
-        {"_id": user_id},
-        {
-            "$set": {
-                "username": review.username,
-                "updated_at": datetime.datetime.utcnow(),
-            },
-            "$setOnInsert": {"created_at": datetime.datetime.utcnow()},
-        },
-        upsert=True,
-    )
+    product = await resolve_product(db, review.product_id, create_if_missing=True)
+    product_id = product["_id"]
+    user_id = await resolve_user_id(db, review.user_id, review.username)
 
     review_doc = {
         "product_id": product_id,
         "user_id": user_id,
+        "product_external_id": review.product_id,
+        "user_external_id": review.user_id,
         "username": review.username,
         "rating": review.rating,
         "comment": review.comment,
@@ -120,14 +176,8 @@ async def get_reviews_by_product(
     page: int,
     limit: int,
 ) -> Dict:
-    product_object_id = to_object_id(product_id, "product_id")
-
-    product = await db.products.find_one({"_id": product_object_id})
-    if not product:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Product not found",
-        )
+    product = await resolve_product(db, product_id)
+    product_object_id = product["_id"]
 
     skip = (page - 1) * limit
     cursor = (

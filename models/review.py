@@ -1,19 +1,25 @@
 import datetime
 from typing import List
 
-from bson import ObjectId
-from pydantic import BaseModel, Field, field_validator
-
-
-def validate_object_id(value: str) -> str:
-    if not ObjectId.is_valid(value):
-        raise ValueError("Invalid ObjectId")
-    return value
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ReviewCreate(BaseModel):
-    product_id: str
-    user_id: str
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "product_id": "p001",
+                "user_id": "u001",
+                "username": "ven",
+                "rating": 5,
+                "comment": "ดีมาก",
+                "images": [],
+            }
+        }
+    )
+
+    product_id: str = Field(..., min_length=1)
+    user_id: str = Field(..., min_length=1)
     username: str = Field(..., min_length=1, max_length=100)
     rating: int = Field(..., ge=1, le=5)
     comment: str = Field(..., min_length=1, max_length=2000)
