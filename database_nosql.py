@@ -15,7 +15,7 @@ client = None
 
 if MONGODB_URL:
     client = AsyncIOMotorClient(MONGODB_URL)
-    db = client["shopdb"]
+    db = client["bottleclub"]
 else:
     logger.warning("MONGODB_URL environment variable is not set. NoSQL features will be disabled.")
 

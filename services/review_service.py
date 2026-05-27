@@ -104,12 +104,13 @@ def serialize_review(review: Dict) -> Dict:
     }
 
 
-async def get_product_rating_summary(db: AsyncIOMotorDatabase, product_id: ObjectId) -> Dict:
+async def get_product_rating_summary(db: AsyncIOMotorDatabase, product_id: Any, is_external: bool = False) -> Dict:
+    match_field = "product_external_id" if is_external else "product_id"
     pipeline = [
-        {"$match": {"product_id": product_id}},
+        {"$match": {match_field: product_id}},
         {
             "$group": {
-                "_id": "$product_id",
+                "_id": f"${match_field}",
                 "average_rating": {"$avg": "$rating"},
                 "review_count": {"$sum": 1},
             }
@@ -141,8 +142,13 @@ async def sync_product_review_stats(db: AsyncIOMotorDatabase, product_id: Object
 
 
 async def create_review(db: AsyncIOMotorDatabase, review: ReviewCreate) -> Dict:
-    product = await resolve_product(db, review.product_id, create_if_missing=True)
-    product_id = product["_id"]
+    try:
+        product = await resolve_product(db, review.product_id, create_if_missing=True)
+        product_id = product["_id"]
+    except HTTPException:
+        # Fallback if product resolution fails but we still want to allow review
+        product_id = review.product_id
+
     user_id = await resolve_user_id(db, review.user_id, review.username)
 
     review_doc = {
@@ -165,7 +171,9 @@ async def create_review(db: AsyncIOMotorDatabase, review: ReviewCreate) -> Dict:
             detail="User has already reviewed this product",
         )
 
-    await sync_product_review_stats(db, product_id)
+    if isinstance(product_id, ObjectId):
+        await sync_product_review_stats(db, product_id)
+        
     created_review = await db.reviews.find_one({"_id": result.inserted_id})
     return serialize_review(created_review)
 
@@ -176,18 +184,28 @@ async def get_reviews_by_product(
     page: int,
     limit: int,
 ) -> Dict:
-    product = await resolve_product(db, product_id)
-    product_object_id = product["_id"]
+    try:
+        product = await resolve_product(db, product_id)
+        product_internal_id = product["_id"]
+        is_external = False
+        lookup_id = product_internal_id
+    except HTTPException:
+        # If product not found in 'products' collection, look up by external_id in reviews
+        product_internal_id = product_id
+        is_external = True
+        lookup_id = product_id
 
     skip = (page - 1) * limit
+    match_query = {"product_external_id": product_id} if is_external else {"product_id": lookup_id}
+    
     cursor = (
-        db.reviews.find({"product_id": product_object_id})
+        db.reviews.find(match_query)
         .sort("created_at", -1)
         .skip(skip)
         .limit(limit)
     )
     reviews: List[Dict] = [serialize_review(review) async for review in cursor]
-    summary = await get_product_rating_summary(db, product_object_id)
+    summary = await get_product_rating_summary(db, lookup_id, is_external=is_external)
     total_pages = math.ceil(summary["review_count"] / limit) if summary["review_count"] else 0
 
     return {
