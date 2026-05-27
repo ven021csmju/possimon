@@ -140,13 +140,22 @@ def terms():
 
 @app.get("/test-mongodb")
 async def root():
-
-    collections = await mongo_db.list_collection_names()
-
-    return {
-        "message": "MongoDB Connected",
-        "collections": collections
-    }
+    if mongo_db is None:
+        return JSONResponse(
+            status_code=503,
+            content={"message": "MongoDB is not configured"}
+        )
+    try:
+        collections = await mongo_db.list_collection_names()
+        return {
+            "message": "MongoDB Connected",
+            "collections": collections
+        }
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"message": f"MongoDB Error: {str(e)}"}
+        )
 
 
 # Include Routers

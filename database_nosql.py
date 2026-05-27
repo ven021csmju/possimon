@@ -1,22 +1,38 @@
 import os
+import logging
 
 from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
 
 load_dotenv()
 
+logger = logging.getLogger(__name__)
+
 MONGODB_URL = os.getenv("MONGODB_URL")
 
-if not MONGODB_URL:
-    raise RuntimeError("MONGODB_URL environment variable is required")
+db = None
+client = None
 
-client = AsyncIOMotorClient(MONGODB_URL)
-db = client["shopdb"]
+if MONGODB_URL:
+    client = AsyncIOMotorClient(MONGODB_URL)
+    db = client["shopdb"]
+else:
+    logger.warning("MONGODB_URL environment variable is not set. NoSQL features will be disabled.")
 
 def get_mongo_db():
+    if db is None:
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=503, 
+            detail="MongoDB is not configured. This feature is unavailable."
+        )
     return db
 
 async def create_mongo_indexes():
+    if db is None:
+        logger.warning("Skipping MongoDB index creation: No database connection.")
+        return
+        
     await db.reviews.create_index(
         [("product_id", 1), ("user_id", 1)],
         unique=True,
