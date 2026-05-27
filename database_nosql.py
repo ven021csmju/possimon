@@ -1,8 +1,17 @@
-from motor.motor_asyncio import AsyncIOMotorClient
-from core.config import settings
+import os
 
-client = AsyncIOMotorClient(settings.MONGODB_URL)
-db = client[settings.MONGODB_DB_NAME]
+from dotenv import load_dotenv
+from motor.motor_asyncio import AsyncIOMotorClient
+
+load_dotenv()
+
+MONGODB_URL = os.getenv("MONGODB_URL")
+
+if not MONGODB_URL:
+    raise RuntimeError("MONGODB_URL environment variable is required")
+
+client = AsyncIOMotorClient(MONGODB_URL)
+db = client["shopdb"]
 
 def get_mongo_db():
     return db
