@@ -11,6 +11,10 @@ services:
         fromDatabase:
           name: possimon-db
           property: connectionString
+      - key: MONGODB_URL
+        sync: false
+      - key: MONGODB_DB_NAME
+        value: shopdb
       - key: SECRET_KEY
         generateValue: true
       - key: ALGORITHM

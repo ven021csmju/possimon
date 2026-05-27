@@ -17,7 +17,8 @@ class Settings(BaseSettings):
     
     # Database
     DATABASE_URL: str = "sqlite:///./possimon.db"
-    MONGODB_URL: str = "mongodb://localhost:27017"
+    MONGODB_URL: Optional[str] = None
+    MONGODB_URI: Optional[str] = None
     MONGODB_DB_NAME: str = "shopdb"
     
     # CORS
@@ -79,6 +80,8 @@ class Settings(BaseSettings):
             self.WEB_FRONTEND_URL = self.FRONTEND_URL
         if not self.POS_FRONTEND_URL:
             self.POS_FRONTEND_URL = self.FRONTEND_URL
+        if not self.MONGODB_URL:
+            self.MONGODB_URL = self.MONGODB_URI or "mongodb://localhost:27017"
         return self
 
 settings = Settings()
