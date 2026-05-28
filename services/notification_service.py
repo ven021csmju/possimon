@@ -1,10 +1,11 @@
 from typing import Any, Optional
 import models
-from routers.websocket import manager
+from websocket.manager import manager
 from core.logging_config import logger
 
 
 async def emit_ws_notification(payload: dict) -> None:
+    """Core function to broadcast a notification to all connected clients."""
     try:
         await manager.broadcast(payload)
         logger.debug(f"WS notification broadcast: type={payload.get('type')}")
@@ -24,10 +25,12 @@ def build_notification(
     user_id: Optional[int] = None,
     extra: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
+    """Helper to build a standardized notification payload."""
     payload: dict[str, Any] = {
         "type": type,
         "message": message,
         "level": level,
+        "timestamp": Any, # Could add actual timestamp if needed
     }
     if title:
         payload["title"] = title
@@ -65,48 +68,31 @@ async def notify_low_stock(product: models.Product) -> None:
 
 
 async def notify_order_created(order: models.Order) -> None:
-    status = order.status.value if hasattr(order.status, "value") else str(order.status)
+    status_val = order.status.value if hasattr(order.status, "value") else str(order.status)
+    # Using NEW_ORDER as requested in requirements
     await emit_ws_notification(
         build_notification(
-            type="ORDER_CREATED",
-            title="New Order",
+            type="NEW_ORDER",
+            title="New Order Received",
             message=f"Order #{order.id} created (total {order.total_price:.2f})",
             level="info",
             order_id=order.id,
-            status=status,
+            status=status_val,
         )
     )
 
 
-async def notify_order_paid(order_id: int) -> None:
-    message = f"Order #{order_id} paid successfully"
+async def notify_payment_success(order_id: int) -> None:
+    """Alias for notify_order_paid to match requirement terminology."""
     await emit_ws_notification(
         build_notification(
-            type="ORDER_PAID",
+            type="PAYMENT_SUCCESS",
             title="Payment Received",
-            message=message,
+            message=f"Order #{order_id} paid successfully",
             level="success",
             order_id=order_id,
             status="paid",
         )
-    )
-    await emit_ws_notification(
-        build_notification(
-            type="ORDER_STATUS_UPDATE",
-            title="Order Updated",
-            message=f"Order #{order_id} status changed to paid",
-            level="info",
-            order_id=order_id,
-            status="paid",
-        )
-    )
-    await emit_ws_notification(
-        {
-            "type": "payment",
-            "orderId": order_id,
-            "status": "paid",
-            "message": message,
-        }
     )
 
 
@@ -121,14 +107,16 @@ async def notify_payment_failed(order_id: int, reason: str = "Payment failed or 
             status="failed",
         )
     )
+
+
+async def notify_shift_alert(message: str, level: str = "warning") -> None:
+    """Notification for employee shifts (Start/End/Alerts)."""
     await emit_ws_notification(
         build_notification(
-            type="ORDER_STATUS_UPDATE",
-            title="Order Updated",
-            message=f"Order #{order_id} payment failed",
-            level="warning",
-            order_id=order_id,
-            status="failed",
+            type="SHIFT_ALERT",
+            title="Shift Alert",
+            message=message,
+            level=level,
         )
     )
 

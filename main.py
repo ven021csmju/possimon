@@ -9,7 +9,8 @@ from database_nosql import create_mongo_indexes, db as mongo_db
 from seed import seed_data
 from core.config import settings
 from core.logging_config import setup_logging
-from routers import auth, products, orders, users, payments, wines, websocket, employees, customers, product_images, reviews
+from routers import auth, products, orders, users, payments, wines, employees, customers, product_images, reviews
+from websocket import router as websocket_router
 
 from exceptions.handler import register_exception_handlers
 from core.logging_config import logger as app_logger
@@ -168,5 +169,5 @@ app.include_router(orders.router, prefix="/api")
 app.include_router(users.router, prefix="/api")
 app.include_router(payments.router, prefix="/api/payments")
 app.include_router(wines.router, prefix="/api/wines")
-app.include_router(websocket.router, prefix="/api")
+app.include_router(websocket_router)
 app.include_router(reviews.router)
