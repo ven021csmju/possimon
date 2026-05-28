@@ -6,7 +6,7 @@ from database import Base
 import models
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=True)
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 if DATABASE_URL.startswith("postgres://"):
