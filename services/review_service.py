@@ -29,7 +29,7 @@ async def resolve_user_id(db: AsyncIOMotorDatabase, user_id: str, username: str)
             },
             upsert=True,
         )
-        return object_id
+        return str(object_id)
 
     await db.users.update_one(
         {"external_id": user_id},
@@ -166,7 +166,7 @@ async def upload_review_media(file: UploadFile, is_video: bool = False):
     return file_url
 
 
-async def get_reviews_by_product(
+async def get_reviews_by_wine(
     db: AsyncIOMotorDatabase,
     wine_id: int,
     page: int,

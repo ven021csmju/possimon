@@ -39,13 +39,13 @@ class ReviewOut(BaseModel):
     created_at: datetime.datetime
 
 
-class ProductReviewSummary(BaseModel):
+class WineReviewSummary(BaseModel):
     wine_id: int
     average_rating: float
     review_count: int
 
 
-class ReviewListOut(ProductReviewSummary):
+class ReviewListOut(WineReviewSummary):
     page: int
     limit: int
     total_pages: int

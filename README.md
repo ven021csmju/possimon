@@ -44,6 +44,17 @@ LINE_CHANNEL_ID=
 LINE_CHANNEL_SECRET=
 FACEBOOK_APP_ID=
 FACEBOOK_APP_SECRET=
+
+# MongoDB reviews
+MONGODB_URL=mongodb://localhost:27017/bottleclub
+
+# MinIO object storage
+# Host-run FastAPI: localhost:9000
+# Docker Compose backend on same network as MinIO: minio:9000
+MINIO_ENDPOINT=localhost:9000
+MINIO_ACCESS_KEY=admin
+MINIO_SECRET_KEY=password123
+MINIO_SECURE=false
 ```
 
 ## Project Structure
@@ -172,4 +183,21 @@ startCommand: gunicorn -w 4 -k uvicorn.workers.UvicornWorker main:app --bind 0.0
 | `migrate_db.py` | Database migration helper |
 | `refill_stock.py` | Restock products |
 | `import_csv.py` | Bulk CSV import |
+| `scripts/migrate_reviews.py` | Inspect/clean MongoDB reviews and rebuild review indexes |
 | `test_concurrency.py` | Concurrency tests |
+
+### MongoDB Review Migration
+
+Run a dry inspection first:
+
+```bash
+python scripts/migrate_reviews.py
+```
+
+Apply cleanup and rebuild indexes:
+
+```bash
+python scripts/migrate_reviews.py --apply
+```
+
+The migration copies valid legacy `product_id` values to `wine_id`, removes unmappable reviews with missing/null `wine_id`, normalizes `user_id` to strings, deletes duplicate `(wine_id, user_id)` reviews while keeping the newest, and rebuilds `uniq_review_wine_user`.
