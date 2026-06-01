@@ -79,6 +79,8 @@ class ProductOut(BaseModel):
     stock: int
     type: str
     images: List[ProductImageOut] = []
+    average_rating: Optional[float] = None
+    review_count: int = 0
 
     class Config:
         from_attributes = True

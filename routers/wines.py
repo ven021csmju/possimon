@@ -1,11 +1,14 @@
 import requests
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.orm import Session
+from motor.motor_asyncio import AsyncIOMotorDatabase
 from typing import List
 import crud
 import schemas
 import models
 from auth.dependencies import get_db, RoleChecker
+from database_nosql import get_mongo_db
+from services import review_service
 from core.config import settings
 
 router = APIRouter(prefix="/wines", tags=["wines"])
@@ -68,12 +71,40 @@ def create_wine(
     return crud.create_wine(db, wine)
 
 @router.get("", response_model=List[schemas.WineOut])
-def get_wines(
+async def get_wines(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
     db: Session = Depends(get_db),
+    mongo_db: AsyncIOMotorDatabase = Depends(get_mongo_db),
 ):
-    return crud.get_wines(db, skip=skip, limit=limit)
+    wines = crud.get_wines(db, skip=skip, limit=limit)
+    wine_ids = [w.id for w in wines]
+    stats_map = await review_service.get_bulk_rating_summaries(mongo_db, wine_ids)
+    
+    results = []
+    for wine in wines:
+        wine_out = schemas.WineOut.from_orm(wine)
+        stats = stats_map.get(wine.id, {"average_rating": 0.0, "review_count": 0})
+        wine_out.average_rating = stats["average_rating"]
+        wine_out.review_count = stats["review_count"]
+        results.append(wine_out)
+    return results
+
+@router.get("/{wine_id}", response_model=schemas.WineOut)
+async def get_wine(
+    wine_id: int,
+    db: Session = Depends(get_db),
+    mongo_db: AsyncIOMotorDatabase = Depends(get_mongo_db),
+):
+    wine = db.query(models.Wine).filter(models.Wine.id == wine_id).first()
+    if not wine:
+        raise HTTPException(status_code=404, detail="Wine not found")
+    
+    stats = await review_service.get_rating_summary(mongo_db, wine_id)
+    wine_out = schemas.WineOut.from_orm(wine)
+    wine_out.average_rating = stats["average_rating"]
+    wine_out.review_count = stats["review_count"]
+    return wine_out
 
 @router.put("/{wine_id}", response_model=schemas.WineOut)
 def update_wine(

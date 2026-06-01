@@ -1,8 +1,9 @@
 import os
 import uuid
+import io
 from fastapi import UploadFile, HTTPException
 from core.config import settings
-import shutil
+from core.minio_client import minio_client
 
 class ImageService:
     ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp"}
@@ -17,52 +18,42 @@ class ImageService:
                 status_code=400, 
                 detail=f"File extension {ext} not allowed. Allowed: {ImageService.ALLOWED_EXTENSIONS}"
             )
-        
-        # We can't easily check size without reading the file in FastAPI if it's SpooledTemporaryFile
-        # But we can check after reading or use a middleware for global limit.
-        # For now, we'll check after reading.
         return ext
 
     @staticmethod
     async def upload_product_image(file: UploadFile, product_id: int):
         ext = ImageService.validate_image(file)
         
-        # Create directory if not exists
-        upload_path = os.path.join(settings.UPLOAD_DIR, settings.PRODUCTS_IMAGE_DIR, str(product_id))
-        os.makedirs(upload_path, exist_ok=True)
+        # Read file content to check size and for MinIO upload
+        content = await file.read()
+        if len(content) > ImageService.MAX_FILE_SIZE:
+            raise HTTPException(status_code=400, detail="File size too large. Max 5MB.")
         
         # Generate unique filename
-        filename = f"{uuid.uuid4()}.{ext}"
-        file_path = os.path.join(upload_path, filename)
+        filename = f"{product_id}/{uuid.uuid4()}.{ext}"
         
-        # Save file
+        # Upload to MinIO
         try:
-            with open(file_path, "wb") as buffer:
-                shutil.copyfileobj(file.file, buffer)
+            minio_client.put_object(
+                settings.MINIO_BUCKET_PRODUCT_IMAGES,
+                filename,
+                io.BytesIO(content),
+                length=len(content),
+                content_type=file.content_type
+            )
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Could not save file: {str(e)}")
-            
-        # Check file size after saving (optional, but safer to check before if possible)
-        if os.path.getsize(file_path) > ImageService.MAX_FILE_SIZE:
-            os.remove(file_path)
-            raise HTTPException(status_code=400, detail="File size too large. Max 5MB.")
+            raise HTTPException(status_code=500, detail=f"Could not save file to MinIO: {str(e)}")
 
-        # Relative path for DB and URL generation
-        relative_path = os.path.join(settings.PRODUCTS_IMAGE_DIR, str(product_id), filename).replace("\\", "/")
-        image_url = f"{settings.STATIC_URL_PREFIX}/{relative_path}"
+        # Generate URL
+        base_url = settings.MINIO_EXTERNAL_URL or f"http://{settings.MINIO_ENDPOINT}"
+        image_url = f"{base_url}/{settings.MINIO_BUCKET_PRODUCT_IMAGES}/{filename}"
         
-        return image_url, file_path
+        return image_url, filename
 
     @staticmethod
-    def delete_image_file(file_path: str):
-        if file_path and os.path.exists(file_path):
+    def delete_image_file(filename: str):
+        if filename:
             try:
-                os.remove(file_path)
-                
-                # Try to remove empty parent directory
-                parent_dir = os.path.dirname(file_path)
-                if not os.listdir(parent_dir):
-                    os.rmdir(parent_dir)
+                minio_client.remove_object(settings.MINIO_BUCKET_PRODUCT_IMAGES, filename)
             except Exception as e:
-                # Log error but don't necessarily fail the API if DB record is gone
-                print(f"Error deleting file {file_path}: {e}")
+                print(f"Error deleting file {filename} from MinIO: {e}")

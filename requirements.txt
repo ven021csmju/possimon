@@ -20,3 +20,4 @@ httpx
 itsdangerous
 qrcode[pil]
 Pillow
+minio

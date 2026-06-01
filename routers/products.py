@@ -1,16 +1,49 @@
-from fastapi import APIRouter, BackgroundTasks, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
+from motor.motor_asyncio import AsyncIOMotorDatabase
 from typing import List
 import crud
 import schemas
+import models
 from auth.dependencies import get_db, RoleChecker
-from services import notification_service
+from database_nosql import get_mongo_db
+from services import review_service, notification_service
 
 router = APIRouter(prefix="/products", tags=["products"])
 
 @router.get("", response_model=List[schemas.ProductOut])
-def get_products(db: Session = Depends(get_db)):
-    return crud.get_products(db)
+async def get_products(
+    db: Session = Depends(get_db),
+    mongo_db: AsyncIOMotorDatabase = Depends(get_mongo_db),
+):
+    products = crud.get_products(db)
+    product_ids = [p.id for p in products]
+    stats_map = await review_service.get_bulk_rating_summaries(mongo_db, product_ids)
+    
+    results = []
+    for p in products:
+        p_out = schemas.ProductOut.from_orm(p)
+        stats = stats_map.get(p.id, {"average_rating": 0.0, "review_count": 0})
+        p_out.average_rating = stats["average_rating"]
+        p_out.review_count = stats["review_count"]
+        results.append(p_out)
+    return results
+
+@router.get("/{product_id}", response_model=schemas.ProductOut)
+async def get_product(
+    product_id: int,
+    db: Session = Depends(get_db),
+    mongo_db: AsyncIOMotorDatabase = Depends(get_mongo_db),
+):
+    product = db.query(models.Product).filter(models.Product.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    stats = await review_service.get_rating_summary(mongo_db, product_id)
+    p_out = schemas.ProductOut.from_orm(product)
+    p_out.average_rating = stats["average_rating"]
+    p_out.review_count = stats["review_count"]
+    return p_out
 
 @router.post("", response_model=schemas.ProductOut)
 def create_product(
