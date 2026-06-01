@@ -11,6 +11,7 @@ minio_client = Minio(
 def init_minio():
     buckets = [
         settings.MINIO_BUCKET_PRODUCT_IMAGES,
+        settings.MINIO_BUCKET_REVIEW_IMAGES,
         settings.MINIO_BUCKET_REVIEW_VIDEOS
     ]
     for bucket in buckets:

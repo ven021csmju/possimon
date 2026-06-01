@@ -69,6 +69,7 @@ class Settings(BaseSettings):
     MINIO_SECRET_KEY: str = "password123"
     MINIO_SECURE: bool = False
     MINIO_BUCKET_PRODUCT_IMAGES: str = "product-images"
+    MINIO_BUCKET_REVIEW_IMAGES: str = "review-images"
     MINIO_BUCKET_REVIEW_VIDEOS: str = "review-videos"
     MINIO_EXTERNAL_URL: Optional[str] = None # For generating public URLs if different from endpoint
 

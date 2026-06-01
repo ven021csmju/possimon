@@ -138,11 +138,11 @@ async def create_review(db: AsyncIOMotorDatabase, review: ReviewCreate) -> Dict:
 
 
 async def upload_review_media(file: UploadFile, is_video: bool = False):
-    bucket = settings.MINIO_BUCKET_REVIEW_VIDEOS if is_video else settings.MINIO_BUCKET_PRODUCT_IMAGES
+    bucket = settings.MINIO_BUCKET_REVIEW_VIDEOS if is_video else settings.MINIO_BUCKET_REVIEW_IMAGES
     
     # Simple validation
     content = await file.read()
-    max_size = 50 * 1024 * 1024 if is_video else 5 * 1024 * 1024 # 50MB for video, 5MB for image
+    max_size = 70 * 1024 * 1024 if is_video else 5 * 1024 * 1024 # 70MB for video, 5MB for image
     if len(content) > max_size:
         raise HTTPException(status_code=400, detail=f"File too large. Max {max_size//(1024*1024)}MB")
     
