@@ -88,22 +88,22 @@ async def migrate_review_collection() -> Dict[str, Any]:
         review["user_id"] = user_id
         pairs.setdefault((wine_id, user_id), []).append(review)
 
-    for pair_reviews in pairs.values():
-        if len(pair_reviews) <= 1:
-            continue
+    # for pair_reviews in pairs.values():
+    #     if len(pair_reviews) <= 1:
+    #         continue
 
-        duplicate_groups += 1
-        pair_reviews.sort(
-            key=lambda item: (
-                item.get("created_at") is not None,
-                str(item.get("created_at")),
-                str(item["_id"]),
-            ),
-            reverse=True,
-        )
-        duplicate_ids = [item["_id"] for item in pair_reviews[1:]]
-        result = await reviews.delete_many({"_id": {"$in": duplicate_ids}})
-        removed_duplicates += result.deleted_count
+    #     duplicate_groups += 1
+    #     pair_reviews.sort(
+    #         key=lambda item: (
+    #             item.get("created_at") is not None,
+    #             str(item.get("created_at")),
+    #             str(item["_id"]),
+    #         ),
+    #         reverse=True,
+    #     )
+    #     duplicate_ids = [item["_id"] for item in pair_reviews[1:]]
+    #     result = await reviews.delete_many({"_id": {"$in": duplicate_ids}})
+    #     removed_duplicates += result.deleted_count
 
     result = {
         "scanned": scanned,
@@ -123,10 +123,14 @@ async def create_mongo_indexes():
 
     await migrate_review_collection()
 
+    try:
+        await db.reviews.drop_index("uniq_review_wine_user")
+    except:
+        pass
+
     await db.reviews.create_index(
         [("wine_id", 1), ("user_id", 1)],
-        unique=True,
-        name="uniq_review_wine_user",
+        name="idx_review_wine_user", # Changed name as it's no longer unique
     )
     await db.reviews.create_index(
         [("wine_id", 1), ("created_at", -1)],

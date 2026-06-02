@@ -125,13 +125,7 @@ async def create_review(db: AsyncIOMotorDatabase, review: ReviewCreate) -> Dict:
         "created_at": datetime.datetime.utcnow(),
     }
 
-    try:
-        result = await db.reviews.insert_one(review_doc)
-    except DuplicateKeyError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User has already reviewed this wine",
-        )
+    result = await db.reviews.insert_one(review_doc)
 
     created_review = await db.reviews.find_one({"_id": result.inserted_id})
     return serialize_review(created_review)
