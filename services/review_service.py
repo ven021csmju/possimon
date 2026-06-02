@@ -11,7 +11,7 @@ from pymongo.errors import DuplicateKeyError
 
 from models.review import ReviewCreate
 from core.config import settings
-from core.minio_client import minio_client
+from services.storage_service import StorageService
 
 
 async def resolve_user_id(db: AsyncIOMotorDatabase, user_id: str, username: str) -> Any:
@@ -138,32 +138,9 @@ async def create_review(db: AsyncIOMotorDatabase, review: ReviewCreate) -> Dict:
 
 
 async def upload_review_media(file: UploadFile, is_video: bool = False):
-    bucket = settings.MINIO_BUCKET_REVIEW_VIDEOS if is_video else settings.MINIO_BUCKET_REVIEW_IMAGES
-    
-    # Simple validation
-    content = await file.read()
-    max_size = 70 * 1024 * 1024 if is_video else 5 * 1024 * 1024 # 70MB for video, 5MB for image
-    if len(content) > max_size:
-        raise HTTPException(status_code=400, detail=f"File too large. Max {max_size//(1024*1024)}MB")
-    
-    ext = file.filename.split(".")[-1].lower()
-    filename = f"reviews/{uuid.uuid4()}.{ext}"
-    
-    try:
-        minio_client.put_object(
-            bucket,
-            filename,
-            io.BytesIO(content),
-            length=len(content),
-            content_type=file.content_type
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Could not save file to MinIO: {str(e)}")
-
-    base_url = settings.MINIO_EXTERNAL_URL or f"http://{settings.MINIO_ENDPOINT}"
-    file_url = f"{base_url}/{bucket}/{filename}"
-    
-    return file_url
+    if is_video:
+        return await StorageService.upload_video(file)
+    return await StorageService.upload_image(file)
 
 
 async def get_reviews_by_wine(

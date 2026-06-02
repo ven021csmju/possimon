@@ -48,13 +48,12 @@ FACEBOOK_APP_SECRET=
 # MongoDB reviews
 MONGODB_URL=mongodb://localhost:27017/bottleclub
 
-# MinIO object storage
-# Host-run FastAPI: localhost:9000
-# Docker Compose backend on same network as MinIO: minio:9000
-MINIO_ENDPOINT=localhost:9000
-MINIO_ACCESS_KEY=admin
-MINIO_SECRET_KEY=password123
-MINIO_SECURE=false
+# Supabase Storage
+SUPABASE_URL=your_supabase_url
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+SUPABASE_BUCKET_IMAGES=review-images
+SUPABASE_BUCKET_VIDEOS=review-video
+SUPABASE_BUCKET_PRODUCT_IMAGES=product-images
 ```
 
 ## Project Structure

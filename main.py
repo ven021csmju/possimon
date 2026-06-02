@@ -6,7 +6,6 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from database import Base, SessionLocal, engine
 from database_nosql import create_mongo_indexes, db as mongo_db
-from core.minio_client import init_minio
 from seed import seed_data
 from core.config import settings
 from core.logging_config import setup_logging
@@ -98,12 +97,6 @@ async def startup_event():
         app_logger.info("MongoDB indexes created successfully.")
     except Exception as e:
         app_logger.error(f"Error creating MongoDB indexes: {e}")
-
-    try:
-        init_minio()
-        app_logger.info("MinIO initialized successfully.")
-    except Exception as e:
-        app_logger.error(f"Error initializing MinIO: {e}")
 
 # Root / Health Check
 @app.get("/")

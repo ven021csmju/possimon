@@ -3,7 +3,7 @@ import uuid
 import io
 from fastapi import UploadFile, HTTPException
 from core.config import settings
-from core.minio_client import minio_client
+from services.storage_service import StorageService
 
 class ImageService:
     ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp"}
@@ -24,36 +24,20 @@ class ImageService:
     async def upload_product_image(file: UploadFile, product_id: int):
         ext = ImageService.validate_image(file)
         
-        # Read file content to check size and for MinIO upload
+        # Check size (Supabase handles this too but we can keep it for early failure)
         content = await file.read()
+        await file.seek(0)
         if len(content) > ImageService.MAX_FILE_SIZE:
             raise HTTPException(status_code=400, detail="File size too large. Max 5MB.")
         
-        # Generate unique filename
-        filename = f"{product_id}/{uuid.uuid4()}.{ext}"
+        # Upload to Supabase
+        image_url, file_path = await StorageService.upload_product_image(file, product_id)
         
-        # Upload to MinIO
-        try:
-            minio_client.put_object(
-                settings.MINIO_BUCKET_PRODUCT_IMAGES,
-                filename,
-                io.BytesIO(content),
-                length=len(content),
-                content_type=file.content_type
-            )
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Could not save file to MinIO: {str(e)}")
-
-        # Generate URL
-        base_url = settings.MINIO_EXTERNAL_URL or f"http://{settings.MINIO_ENDPOINT}"
-        image_url = f"{base_url}/{settings.MINIO_BUCKET_PRODUCT_IMAGES}/{filename}"
-        
-        return image_url, filename
+        return image_url, file_path
 
     @staticmethod
     def delete_image_file(filename: str):
         if filename:
-            try:
-                minio_client.remove_object(settings.MINIO_BUCKET_PRODUCT_IMAGES, filename)
-            except Exception as e:
-                print(f"Error deleting file {filename} from MinIO: {e}")
+            import asyncio
+            # filename is expected to be "product_id/uuid.ext"
+            asyncio.create_task(StorageService.delete_file(settings.SUPABASE_BUCKET_PRODUCT_IMAGES, filename))

@@ -63,15 +63,12 @@ class Settings(BaseSettings):
     PRODUCTS_IMAGE_DIR: str = "products"
     STATIC_URL_PREFIX: str = "/static"
 
-    # MinIO Settings
-    MINIO_ENDPOINT: str = "localhost:9000"
-    MINIO_ACCESS_KEY: str = "admin"
-    MINIO_SECRET_KEY: str = "password123"
-    MINIO_SECURE: bool = False
-    MINIO_BUCKET_PRODUCT_IMAGES: str = "product-images"
-    MINIO_BUCKET_REVIEW_IMAGES: str = "review-images"
-    MINIO_BUCKET_REVIEW_VIDEOS: str = "review-videos"
-    MINIO_EXTERNAL_URL: Optional[str] = None # For generating public URLs if different from endpoint
+    # Supabase Storage Settings
+    SUPABASE_URL: str = ""
+    SUPABASE_SERVICE_ROLE_KEY: str = ""
+    SUPABASE_BUCKET_IMAGES: str = "review-images"
+    SUPABASE_BUCKET_VIDEOS: str = "review-video"
+    SUPABASE_BUCKET_PRODUCT_IMAGES: str = "product-images"
 
     model_config = SettingsConfigDict(
         env_file=".env",
