@@ -11,8 +11,15 @@ class StorageService:
     @classmethod
     def get_client(cls) -> Client:
         if cls._client is None:
+            # For debugging purposes, but never log the actual key!
+            from core.config import settings
+            import logging
+            logger = logging.getLogger(__name__)
+            
             if not settings.SUPABASE_URL or not settings.SUPABASE_SERVICE_ROLE_KEY:
+                logger.error(f"Supabase configuration missing: URL={'set' if settings.SUPABASE_URL else 'missing'}, Key={'set' if settings.SUPABASE_SERVICE_ROLE_KEY else 'missing'}")
                 raise RuntimeError("Supabase credentials not configured")
+            
             cls._client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY)
         return cls._client
 

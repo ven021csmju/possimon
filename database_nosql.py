@@ -123,14 +123,17 @@ async def create_mongo_indexes():
 
     await migrate_review_collection()
 
-    try:
-        await db.reviews.drop_index("uniq_review_wine_user")
-    except:
-        pass
+    # Drop any legacy unique indexes that might be lingering
+    legacy_indexes = ["uniq_review_wine_user", "uniq_review_product_user"]
+    for idx in legacy_indexes:
+        try:
+            await db.reviews.drop_index(idx)
+        except:
+            pass
 
     await db.reviews.create_index(
         [("wine_id", 1), ("user_id", 1)],
-        name="idx_review_wine_user", # Changed name as it's no longer unique
+        name="idx_review_wine_user", 
     )
     await db.reviews.create_index(
         [("wine_id", 1), ("created_at", -1)],
