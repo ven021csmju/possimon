@@ -165,3 +165,16 @@ async def get_reviews_by_wine(
         "total_pages": total_pages,
         "reviews": reviews,
     }
+
+
+async def get_reviews_by_user(
+    db: AsyncIOMotorDatabase,
+    user_id: str,
+    limit: int,
+) -> List[Dict]:
+    cursor = (
+        db.reviews.find({"user_id": user_id})
+        .sort("created_at", -1)
+        .limit(limit)
+    )
+    return [serialize_review(review) async for review in cursor]

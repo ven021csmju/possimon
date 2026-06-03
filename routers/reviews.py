@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Query, status, UploadFile, File
 from motor.motor_asyncio import AsyncIOMotorDatabase
+from typing import List
 
 from database_nosql import get_mongo_db
 from models.review import ReviewCreate, ReviewListOut, ReviewOut
@@ -33,6 +34,15 @@ async def get_wine_reviews(
     db: AsyncIOMotorDatabase = Depends(get_mongo_db),
 ):
     return await review_service.get_reviews_by_wine(db, wine_id, page, limit)
+
+
+@router.get("/user/{user_id}", response_model=List[ReviewOut])
+async def get_user_reviews(
+    user_id: str,
+    limit: int = Query(100, ge=1, le=100),
+    db: AsyncIOMotorDatabase = Depends(get_mongo_db),
+):
+    return await review_service.get_reviews_by_user(db, user_id, limit)
 
 
 @router.get("/product/{wine_id}", response_model=ReviewListOut, deprecated=True)
