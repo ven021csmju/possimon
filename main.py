@@ -4,12 +4,14 @@ from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from database import Base, SessionLocal, engine
 from database_nosql import create_mongo_indexes, db as mongo_db
 from seed import seed_data
 from core.config import settings
 from core.logging_config import setup_logging
-from routers import auth, products, orders, users, payments, wines, employees, customers, product_images, reviews
+from routers import auth, products, orders, users, payments, wines, employees, customers, product_images, reviews, stats
+from services.log_lifecycle_service import run_log_lifecycle_job
 from websocket import router as websocket_router
 
 from exceptions.handler import register_exception_handlers
@@ -22,6 +24,7 @@ app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION
 )
+scheduler = AsyncIOScheduler(timezone=settings.LOG_LIFECYCLE_TIMEZONE)
 
 # Middleware for request logging
 @app.middleware("http")
@@ -98,6 +101,25 @@ async def startup_event():
     except Exception as e:
         app_logger.error(f"Error creating MongoDB indexes: {e}")
 
+    if not scheduler.running:
+        scheduler.add_job(
+            run_log_lifecycle_job,
+            "cron",
+            hour=settings.LOG_LIFECYCLE_HOUR,
+            minute=settings.LOG_LIFECYCLE_MINUTE,
+            id="log_lifecycle_nightly",
+            replace_existing=True,
+        )
+        scheduler.start()
+        app_logger.info("Log lifecycle scheduler started.")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    if scheduler.running:
+        scheduler.shutdown(wait=False)
+        app_logger.info("Log lifecycle scheduler stopped.")
+
 # Root / Health Check
 @app.get("/")
 def health_check():
@@ -169,5 +191,6 @@ app.include_router(orders.router, prefix="/api")
 app.include_router(users.router, prefix="/api")
 app.include_router(payments.router, prefix="/api/payments")
 app.include_router(wines.router, prefix="/api/wines")
+app.include_router(stats.router, prefix="/api")
 app.include_router(websocket_router)
 app.include_router(reviews.router)

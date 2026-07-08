@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Float, DateTime, Boolean, Enum
+from sqlalchemy import Column, Date, Integer, String, ForeignKey, Float, DateTime, Boolean, Enum, UniqueConstraint
 from sqlalchemy.orm import relationship
 from database import Base
 import datetime
@@ -209,3 +209,35 @@ class Rating(Base):
     review = Column(String)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     wine = relationship("Wine", back_populates="ratings")
+
+class DailyUserStats(Base):
+    __tablename__ = "daily_user_stats"
+    __table_args__ = (
+        UniqueConstraint("stat_date", "user_id", "event_type", "product_id", name="uq_daily_user_stats_key"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    stat_date = Column(Date, index=True, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True, nullable=False)
+    event_type = Column(String(100), index=True, nullable=False)
+    product_id = Column(Integer, default=0, index=True, nullable=False)
+    event_count = Column(Integer, default=0, nullable=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+class DailySearchStats(Base):
+    __tablename__ = "daily_search_stats"
+    __table_args__ = (
+        UniqueConstraint("stat_date", "normalized_keyword", "user_id", name="uq_daily_search_stats_key"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    stat_date = Column(Date, index=True, nullable=False)
+    keyword = Column(String(255), nullable=False)
+    normalized_keyword = Column(String(255), index=True, nullable=False)
+    user_id = Column(Integer, default=0, index=True, nullable=False)
+    search_count = Column(Integer, default=0, nullable=False)
+    total_results = Column(Integer, default=0, nullable=False)
+    avg_results = Column(Float, default=0.0, nullable=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)

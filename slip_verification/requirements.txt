@@ -1,0 +1,20 @@
+fastapi
+uvicorn
+sqlalchemy
+psycopg2-binary
+pydantic
+pydantic-settings
+python-multipart
+python-dotenv
+alembic
+opencv-python-headless
+pyzbar
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.3.0+cpu
+torchvision==0.18.0+cpu
+easyocr
+pillow
+python-jose[cryptography]
+passlib[bcrypt]
+bcrypt
+requests

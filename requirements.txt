@@ -21,3 +21,6 @@ itsdangerous
 qrcode[pil]
 Pillow
 supabase
+asyncpg
+apscheduler
+aiosqlite

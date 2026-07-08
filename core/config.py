@@ -63,6 +63,15 @@ class Settings(BaseSettings):
     PRODUCTS_IMAGE_DIR: str = "products"
     STATIC_URL_PREFIX: str = "/static"
 
+    # Log Lifecycle
+    LOG_SUMMARY_AFTER_DAYS: int = 30
+    USER_LOG_TTL_DAYS: int = 90
+    SEARCH_LOG_TTL_DAYS: int = 180
+    LOG_ARCHIVE_DIR: str = "logs/archive"
+    LOG_LIFECYCLE_TIMEZONE: str = "Asia/Bangkok"
+    LOG_LIFECYCLE_HOUR: int = 2
+    LOG_LIFECYCLE_MINUTE: int = 0
+
     # Supabase Storage Settings
     SUPABASE_URL: str = ""
     SUPABASE_SERVICE_ROLE_KEY: str = ""

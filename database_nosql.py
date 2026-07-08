@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Tuple
 
 from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
+from core.config import settings
 
 load_dotenv(override=True)
 
@@ -141,3 +142,41 @@ async def create_mongo_indexes():
     )
     await db.reviews.create_index([("user_id", 1)], name="idx_reviews_user")
     await db.users.create_index([("external_id", 1)], unique=True, sparse=True, name="uniq_users_external_id")
+
+    await db.user_logs.create_index(
+        [("timestamp", 1)],
+        expireAfterSeconds=settings.USER_LOG_TTL_DAYS * 24 * 60 * 60,
+        name="ttl_user_logs_timestamp_90d",
+    )
+    await db.user_logs.create_index(
+        [("timestamp", 1), ("lifecycle.summarized_at", 1)],
+        name="idx_user_logs_lifecycle_timestamp",
+    )
+    await db.user_logs.create_index(
+        [("user_id", 1), ("event_type", 1), ("timestamp", 1)],
+        name="idx_user_logs_user_event_timestamp",
+    )
+    await db.user_logs.create_index(
+        [("product_id", 1), ("timestamp", 1)],
+        name="idx_user_logs_product_timestamp",
+        sparse=True,
+    )
+
+    await db.search_logs.create_index(
+        [("timestamp", 1)],
+        expireAfterSeconds=settings.SEARCH_LOG_TTL_DAYS * 24 * 60 * 60,
+        name="ttl_search_logs_timestamp_180d",
+    )
+    await db.search_logs.create_index(
+        [("timestamp", 1), ("lifecycle.summarized_at", 1)],
+        name="idx_search_logs_lifecycle_timestamp",
+    )
+    await db.search_logs.create_index(
+        [("normalized_keyword", 1), ("timestamp", 1)],
+        name="idx_search_logs_keyword_timestamp",
+    )
+    await db.search_logs.create_index(
+        [("user_id", 1), ("timestamp", 1)],
+        name="idx_search_logs_user_timestamp",
+        sparse=True,
+    )

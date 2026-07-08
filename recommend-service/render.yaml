@@ -1,0 +1,33 @@
+services:
+  - type: web
+    name: possimon-recommend-service
+    env: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: possimon-db
+          property: connectionString
+      - key: DB_SSLMODE
+        value: require
+
+  - type: cron
+    name: possimon-recommend-cron
+    env: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    schedule: "0 */6 * * *"
+    dockerCommand: python recommendation.py
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: possimon-db
+          property: connectionString
+      - key: DB_SSLMODE
+        value: require
+
+databases:
+  - name: possimon-db
+    plan: free

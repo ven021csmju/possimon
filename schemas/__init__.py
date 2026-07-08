@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 import datetime
 import enum
 
@@ -324,5 +324,69 @@ class RatingOut(BaseModel):
     score: float
     review: Optional[str] = None
     taster_name: Optional[str] = None
+    class Config:
+        from_attributes = True
+
+class UserLogEventType(str, enum.Enum):
+    LOGIN = "login"
+    LOGOUT = "logout"
+    VIEW_PRODUCT = "view_product"
+    ADD_TO_CART = "add_to_cart"
+    CHECKOUT = "checkout"
+    ORDER_CREATED = "order_created"
+    PAYMENT_CREATED = "payment_created"
+    PAYMENT_COMPLETED = "payment_completed"
+    CUSTOM = "custom"
+
+class LogLifecycleState(BaseModel):
+    summarized_at: Optional[datetime.datetime] = None
+    archived_at: Optional[datetime.datetime] = None
+    archive_path: Optional[str] = None
+
+class UserLogDocument(BaseModel):
+    user_id: int = Field(..., gt=0)
+    event_type: UserLogEventType
+    timestamp: datetime.datetime = Field(default_factory=datetime.datetime.utcnow)
+    product_id: Optional[int] = Field(default=None, gt=0)
+    order_id: Optional[int] = Field(default=None, gt=0)
+    payment_id: Optional[int] = Field(default=None, gt=0)
+    session_id: Optional[str] = Field(default=None, max_length=255)
+    ip_address: Optional[str] = Field(default=None, max_length=64)
+    user_agent: Optional[str] = Field(default=None, max_length=500)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    lifecycle: LogLifecycleState = Field(default_factory=LogLifecycleState)
+
+class SearchLogDocument(BaseModel):
+    keyword: str = Field(..., min_length=1, max_length=255)
+    normalized_keyword: str = Field(..., min_length=1, max_length=255)
+    timestamp: datetime.datetime = Field(default_factory=datetime.datetime.utcnow)
+    user_id: Optional[int] = Field(default=None, gt=0)
+    result_count: int = Field(0, ge=0)
+    filters: Dict[str, Any] = Field(default_factory=dict)
+    session_id: Optional[str] = Field(default=None, max_length=255)
+    ip_address: Optional[str] = Field(default=None, max_length=64)
+    user_agent: Optional[str] = Field(default=None, max_length=500)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    lifecycle: LogLifecycleState = Field(default_factory=LogLifecycleState)
+
+class DailyUserStatsOut(BaseModel):
+    stat_date: datetime.date
+    user_id: int
+    event_type: str
+    product_id: int
+    event_count: int
+
+    class Config:
+        from_attributes = True
+
+class DailySearchStatsOut(BaseModel):
+    stat_date: datetime.date
+    keyword: str
+    normalized_keyword: str
+    user_id: Optional[int]
+    search_count: int
+    total_results: int
+    avg_results: float
+
     class Config:
         from_attributes = True
