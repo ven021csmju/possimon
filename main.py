@@ -10,7 +10,7 @@ from database_nosql import create_mongo_indexes, db as mongo_db
 from seed import seed_data
 from core.config import settings
 from core.logging_config import setup_logging
-from routers import auth, products, orders, users, payments, wines, employees, customers, product_images, reviews, stats
+from routers import auth, products, orders, users, payments, wines, employees, customers, product_images, reviews, stats, health
 from services.log_lifecycle_service import run_log_lifecycle_job
 from websocket import router as websocket_router
 
@@ -182,6 +182,7 @@ async def root():
 
 
 # Include Routers
+app.include_router(health.router)
 app.include_router(auth.router, prefix="/api/auth")
 app.include_router(employees.router, prefix="/api")
 app.include_router(customers.router, prefix="/api")

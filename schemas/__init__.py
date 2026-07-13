@@ -390,3 +390,7 @@ class DailySearchStatsOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+class HealthCheckResponse(BaseModel):
+    status: str = Field(..., examples=["ok"])
+    timestamp: str = Field(..., examples=["2026-07-13T04:16:00Z"])
