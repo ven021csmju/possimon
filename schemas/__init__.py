@@ -394,3 +394,7 @@ class DailySearchStatsOut(BaseModel):
 class HealthCheckResponse(BaseModel):
     status: str = Field(..., examples=["ok"])
     timestamp: str = Field(..., examples=["2026-07-13T04:16:00Z"])
+
+class PingResponse(BaseModel):
+    message: str = Field(..., examples=["pong"])
+    timestamp: str = Field(..., examples=["2026-07-13T04:16:00Z"])

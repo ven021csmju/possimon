@@ -1,4 +1,4 @@
-fastapi
+fastapi==0.139.0
 uvicorn
 gunicorn
 sqlalchemy

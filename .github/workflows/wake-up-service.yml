@@ -1,0 +1,63 @@
+name: Wake Up Service
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  wake-up:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Ping /health with retry
+        env:
+          API_URL: ${{ secrets.API_URL }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${API_URL}" ]; then
+            echo "ERROR: API_URL secret is not configured."
+            echo "Add repository secret API_URL (e.g. https://your-app.onrender.com)"
+            exit 1
+          fi
+
+          HEALTH_URL="${API_URL%/}/health"
+          MAX_ATTEMPTS=3
+          RETRY_DELAY_SECONDS=10
+
+          echo "Wake-up job started at $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+          echo "Target URL: ${HEALTH_URL}"
+
+          for attempt in $(seq 1 "${MAX_ATTEMPTS}"); do
+            echo "----------------------------------------"
+            echo "Attempt ${attempt}/${MAX_ATTEMPTS} at $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+
+            HTTP_CODE=$(curl \
+              --silent \
+              --show-error \
+              --location \
+              --max-time 30 \
+              --write-out "%{http_code}" \
+              --output /tmp/health_response.json \
+              "${HEALTH_URL}")
+
+            echo "HTTP status: ${HTTP_CODE}"
+            echo "Response body:"
+            cat /tmp/health_response.json
+            echo ""
+
+            if [ "${HTTP_CODE}" -eq 200 ]; then
+              echo "Health check passed on attempt ${attempt}."
+              exit 0
+            fi
+
+            if [ "${attempt}" -lt "${MAX_ATTEMPTS}" ]; then
+              echo "Health check failed. Retrying in ${RETRY_DELAY_SECONDS}s..."
+              sleep "${RETRY_DELAY_SECONDS}"
+            fi
+          done
+
+          echo "Health check failed after ${MAX_ATTEMPTS} attempts."
+          exit 1
